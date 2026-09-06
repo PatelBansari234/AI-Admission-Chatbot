@@ -1,0 +1,80 @@
+# Environment & Secrets (NEVER commit real credentials)
+.env
+.env.*
+!.env.example
+
+# Python & Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Models & Weights (large local model directories)
+models/
+
+# Vector Store & Local Databases (Chroma / SQLite / Postgres data)
+vector_db/
+*.sqlite3
+*.sqlite3-journal
+
+# Crawled / Runtime / Generated Cache & Output
+data/processed/
+data/_archived_crawl/
+data/raw/**/_versions/
+server.log
+ingest_output.log
+*.log
+debug_brochure.txt
+
+# Large Archive PDFs (>100 MB exceeds GitHub push limits)
+data/raw/pdfs/crawled/prospectus-20-21-new.pdf
+data/raw/pdfs/crawled/Prospectus-21-22.pdf
+
+# IDE & Editor Configurations
+.vscode/
+.claude/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
