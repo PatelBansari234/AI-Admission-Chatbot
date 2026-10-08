@@ -97,37 +97,95 @@ def update_password(username: str, password_hash: str) -> bool:
 # --- documents ---------------------------------------------------------------
 
 
-def upsert_document(source: str, doc_type: str, chunks: int, uploaded_by: str) -> None:
+def upsert_document(
+    source: str,
+    doc_type: str,
+    chunks: int,
+    uploaded_by: str,
+    status: str = "PENDING",
+    filename: str | None = None,
+) -> dict:
+    college_id = default_college_id()
+    fname = filename or source
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            INSERT INTO documents (college_id, source, filename, doc_type, chunks, status, version, uploaded_by)
+            VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
+            ON CONFLICT (college_id, source) DO UPDATE
+                SET filename = COALESCE(EXCLUDED.filename, documents.filename),
+                    doc_type = EXCLUDED.doc_type,
+                    chunks = EXCLUDED.chunks,
+                    status = EXCLUDED.status,
+                    version = documents.version + 1,
+                    uploaded_by = EXCLUDED.uploaded_by,
+                    updated_at = now()
+            RETURNING id, source, filename, doc_type, chunks, status, version, uploaded_by, reviewed_by, reviewed_at, added_at, updated_at
+            """,
+            (college_id, source, fname, doc_type, chunks, status, uploaded_by),
+        ).fetchone()
+        doc_dict = dict(row)
+        conn.execute(
+            "INSERT INTO document_history (document_id, uploaded_by, chunks) "
+            "VALUES (%s, %s, %s)",
+            (doc_dict["id"], uploaded_by, chunks),
+        )
+        conn.commit()
+        return doc_dict
+
+
+def get_document(doc_id_or_source: int | str) -> dict | None:
+    college_id = default_college_id()
+    with get_conn() as conn:
+        if isinstance(doc_id_or_source, int) or (isinstance(doc_id_or_source, str) and doc_id_or_source.isdigit()):
+            row = conn.execute(
+                "SELECT id, source, filename, doc_type, chunks, status, version, uploaded_by, reviewed_by, reviewed_at, added_at, updated_at "
+                "FROM documents WHERE college_id = %s AND id = %s",
+                (college_id, int(doc_id_or_source)),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id, source, filename, doc_type, chunks, status, version, uploaded_by, reviewed_by, reviewed_at, added_at, updated_at "
+                "FROM documents WHERE college_id = %s AND source = %s",
+                (college_id, str(doc_id_or_source)),
+            ).fetchone()
+        return dict(row) if row else None
+
+
+def update_document_status(doc_id: int, status: str, reviewed_by: str) -> dict | None:
     college_id = default_college_id()
     with get_conn() as conn:
         row = conn.execute(
             """
-            INSERT INTO documents (college_id, source, doc_type, chunks, uploaded_by)
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (college_id, source) DO UPDATE
-                SET doc_type = EXCLUDED.doc_type,
-                    chunks = EXCLUDED.chunks,
-                    uploaded_by = EXCLUDED.uploaded_by,
-                    updated_at = now()
-            RETURNING id
+            UPDATE documents
+            SET status = %s,
+                reviewed_by = %s,
+                reviewed_at = now(),
+                updated_at = now()
+            WHERE college_id = %s AND id = %s
+            RETURNING id, source, filename, doc_type, chunks, status, version, uploaded_by, reviewed_by, reviewed_at, added_at, updated_at
             """,
-            (college_id, source, doc_type, chunks, uploaded_by),
+            (status, reviewed_by, college_id, doc_id),
         ).fetchone()
-        conn.execute(
-            "INSERT INTO document_history (document_id, uploaded_by, chunks) "
-            "VALUES (%s, %s, %s)",
-            (row["id"], uploaded_by, chunks),
-        )
         conn.commit()
+        return dict(row) if row else None
 
 
-def list_documents() -> list[dict]:
+def list_documents(status_filter: str | None = None) -> list[dict]:
+    college_id = default_college_id()
     with get_conn() as conn:
-        docs = conn.execute(
-            "SELECT id, source, doc_type, chunks, uploaded_by, added_at, updated_at "
-            "FROM documents WHERE college_id = %s ORDER BY updated_at DESC",
-            (default_college_id(),),
-        ).fetchall()
+        if status_filter:
+            docs = conn.execute(
+                "SELECT id, source, filename, doc_type, chunks, status, version, uploaded_by, reviewed_by, reviewed_at, added_at, updated_at "
+                "FROM documents WHERE college_id = %s AND status = %s ORDER BY updated_at DESC",
+                (college_id, status_filter),
+            ).fetchall()
+        else:
+            docs = conn.execute(
+                "SELECT id, source, filename, doc_type, chunks, status, version, uploaded_by, reviewed_by, reviewed_at, added_at, updated_at "
+                "FROM documents WHERE college_id = %s ORDER BY updated_at DESC",
+                (college_id,),
+            ).fetchall()
         result = []
         for doc in docs:
             history = conn.execute(
@@ -135,29 +193,33 @@ def list_documents() -> list[dict]:
                 "WHERE document_id = %s ORDER BY at ASC LIMIT 20",
                 (doc["id"],),
             ).fetchall()
-            entry = {k: v for k, v in doc.items() if k != "id"}
+            entry = dict(doc)
             entry["history"] = history
             result.append(entry)
         return result
 
 
+def get_active_sources() -> set[str]:
+    college_id = default_college_id()
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT source FROM documents WHERE college_id = %s AND status = 'ACTIVE'",
+            (college_id,),
+        ).fetchall()
+        return {r["source"] for r in rows}
+
+
 def document_freshness(doc_type: str | None = None) -> dict[str, object]:
-    """{source: updated_at}, cheapest possible shape for retriever.py's
-    source-priority freshness boost - unlike list_documents() this skips
-    the per-document upload-history query, since ranking chunks on every
-    single retrieve() call doesn't need it. doc_type matters here: PDFs and
-    website pages shouldn't be ranked against each other in the same
-    freshness ordering (website already gets its own flat boost - see
-    source_priority.py), so the caller filters to one type at a time."""
+    """{source: updated_at} for ACTIVE documents only."""
     with get_conn() as conn:
         if doc_type:
             rows = conn.execute(
-                "SELECT source, updated_at FROM documents WHERE college_id = %s AND doc_type = %s",
+                "SELECT source, updated_at FROM documents WHERE college_id = %s AND doc_type = %s AND status = 'ACTIVE'",
                 (default_college_id(), doc_type),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT source, updated_at FROM documents WHERE college_id = %s",
+                "SELECT source, updated_at FROM documents WHERE college_id = %s AND status = 'ACTIVE'",
                 (default_college_id(),),
             ).fetchall()
     return {row["source"]: row["updated_at"] for row in rows}
@@ -171,6 +233,7 @@ def delete_document(source: str) -> bool:
         )
         conn.commit()
         return cur.rowcount > 0
+
 
 
 # --- conversations -----------------------------------------------------------

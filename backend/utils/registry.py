@@ -12,9 +12,13 @@ def load_registry() -> list[dict]:
     return repo.list_documents()
 
 
-def record_document(source: str, doc_type: str, chunks: int, uploaded_by: str = "system") -> None:
+def record_document(
+    source: str, doc_type: str, chunks: int, uploaded_by: str = "system",
+    status: str = "PENDING", filename: str | None = None,
+) -> dict:
     """Insert or update the entry for one source file and keep an upload history."""
-    repo.upsert_document(source, doc_type, chunks, uploaded_by)
+    return repo.upsert_document(source, doc_type, chunks, uploaded_by, status=status, filename=filename)
+
 
 
 def remove_document(source: str) -> bool:

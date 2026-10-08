@@ -46,8 +46,9 @@ def _safe_name(filename: str) -> str:
 
 
 @router.get("/documents")
-def list_documents(_: str = Depends(require_admin)):
-    return {"documents": load_registry(), "index": store.stats()}
+def list_documents(status: str | None = None, _: str = Depends(require_admin)):
+    docs = repo.list_documents(status_filter=status)
+    return {"documents": docs, "index": store.stats()}
 
 
 @router.post("/upload")
@@ -55,7 +56,7 @@ async def upload_document(
     file: UploadFile = File(...),
     admin: str = Depends(require_admin),
 ):
-    """Save a new/updated PDF into the dataset and re-index it immediately."""
+    """Save a new/updated file into dataset and record as PENDING (not indexed into RAG yet)."""
     name = _safe_name(file.filename or "")
     suffix = "." + name.rsplit(".", 1)[-1].lower() if "." in name else ""
     if suffix not in ALLOWED_SUFFIXES:
@@ -73,7 +74,6 @@ async def upload_document(
     target_dir = RAW_PDF_DIR if suffix == ".pdf" else RAW_WEB_DIR
     target = target_dir / name
 
-    # Keep the previous version instead of silently destroying it.
     replaced = target.exists()
     if replaced:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -84,16 +84,89 @@ async def upload_document(
     target.write_bytes(payload)
 
     try:
-        result = ingest_file(target, uploaded_by=admin, replace=True)
+        result = ingest_file(target, uploaded_by=admin, replace=True, status="PENDING")
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Could not index file: {exc}")
+        raise HTTPException(status_code=422, detail=f"Could not parse uploaded file: {exc}")
 
     return {
-        "message": f"{'Replaced' if replaced else 'Added'} {name} and re-indexed it",
+        "message": f"{'Replaced' if replaced else 'Added'} {name} and stored as PENDING (awaiting admin approval)",
         "replaced": replaced,
         **result,
         "index": store.stats(),
     }
+
+
+def _find_target_file(source: str) -> Path | None:
+    p = RAW_PDF_DIR / source
+    if p.exists():
+        return p
+    for found in RAW_PDF_DIR.rglob(source):
+        if found.is_file():
+            return found
+    p_web = RAW_WEB_DIR / source
+    if p_web.exists():
+        return p_web
+    for found in RAW_WEB_DIR.rglob(source):
+        if found.is_file():
+            return found
+    return None
+
+
+@router.post("/documents/{doc_id}/approve")
+def approve_document(doc_id: str, admin: str = Depends(require_admin)):
+    """Approve a PENDING/REJECTED/ARCHIVED document and activate it in RAG vector search."""
+    doc = repo.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    target = _find_target_file(doc["source"])
+    if not target:
+        raise HTTPException(status_code=404, detail=f"Document file '{doc['source']}' not found on disk")
+
+    try:
+        res = ingest_file(target, uploaded_by=doc.get("uploaded_by") or admin, replace=True, status="ACTIVE")
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not index document chunks: {exc}")
+
+    updated = repo.update_document_status(doc["id"], status="ACTIVE", reviewed_by=admin)
+    return {
+        "message": f"Document '{doc['source']}' approved and activated in production RAG.",
+        "document": updated or res,
+        "index": store.stats(),
+    }
+
+
+@router.post("/documents/{doc_id}/reject")
+def reject_document(doc_id: str, admin: str = Depends(require_admin)):
+    """Reject a document, preventing RAG retrieval and deleting its chunks from vector store."""
+    doc = repo.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    store.delete_source(doc["source"], repo.default_college_id())
+    updated = repo.update_document_status(doc["id"], status="REJECTED", reviewed_by=admin)
+    return {
+        "message": f"Document '{doc['source']}' rejected and removed from RAG.",
+        "document": updated,
+        "index": store.stats(),
+    }
+
+
+@router.post("/documents/{doc_id}/archive")
+def archive_document(doc_id: str, admin: str = Depends(require_admin)):
+    """Archive an active document, removing its chunks from production vector search."""
+    doc = repo.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    store.delete_source(doc["source"], repo.default_college_id())
+    updated = repo.update_document_status(doc["id"], status="ARCHIVED", reviewed_by=admin)
+    return {
+        "message": f"Document '{doc['source']}' archived and unindexed.",
+        "document": updated,
+        "index": store.stats(),
+    }
+
 
 
 @router.post("/reindex")

@@ -28,13 +28,25 @@ CREATE TABLE IF NOT EXISTS documents (
     id          SERIAL PRIMARY KEY,
     college_id  INTEGER REFERENCES colleges(id),
     source      TEXT NOT NULL,
+    filename    TEXT,
     doc_type    TEXT NOT NULL,
     chunks      INTEGER NOT NULL DEFAULT 0,
+    status      TEXT NOT NULL DEFAULT 'ACTIVE',
+    version     INTEGER NOT NULL DEFAULT 1,
     uploaded_by TEXT,
+    reviewed_by TEXT,
+    reviewed_at TIMESTAMPTZ,
     added_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (college_id, source)
 );
+
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS filename TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ACTIVE';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
+
 
 -- Per-(re)upload history for a document, mirrors the old registry.json "history" list.
 CREATE TABLE IF NOT EXISTS document_history (

@@ -51,8 +51,8 @@ def _load_pdf_records(path: Path, college_id: int) -> tuple[list[dict], list[dic
     return records, table_chunks(tables, path.name, college_id)
 
 
-def ingest_file(path: Path, uploaded_by: str = "system", replace: bool = True) -> dict:
-    """Index one file and return {"source", "chunks"}."""
+def ingest_file(path: Path, uploaded_by: str = "system", replace: bool = True, status: str = "PENDING") -> dict:
+    """Index one file and return metadata. Only adds chunks to production vector store if status is ACTIVE."""
     college_id = default_college_id()
     extracted_table_chunks: list[dict] = []
 
@@ -68,14 +68,24 @@ def ingest_file(path: Path, uploaded_by: str = "system", replace: bool = True) -
     if not chunks:
         raise ValueError(f"No usable text extracted from {path.name}")
 
-    # Replacing an updated prospectus must drop the stale chunks first.
+    # Dropping old chunks for replacement
     if replace:
         store.delete_source(path.name, college_id)
 
-    embeddings = embed_documents([c["text"] for c in chunks])
-    store.add_chunks(chunks, embeddings)
-    record_document(path.name, doc_type, len(chunks), uploaded_by)
-    return {"source": path.name, "doc_type": doc_type, "chunks": len(chunks)}
+    # CRITICAL: Chunks enter vector store ONLY when status is ACTIVE!
+    if status == "ACTIVE":
+        embeddings = embed_documents([c["text"] for c in chunks])
+        store.add_chunks(chunks, embeddings)
+
+    doc_record = record_document(path.name, doc_type, len(chunks), uploaded_by=uploaded_by, status=status, filename=path.name)
+    return {
+        "id": doc_record.get("id"),
+        "source": path.name,
+        "filename": path.name,
+        "doc_type": doc_type,
+        "chunks": len(chunks),
+        "status": status,
+    }
 
 
 def ingest_all(reset: bool = False) -> list[dict]:
@@ -83,9 +93,6 @@ def ingest_all(reset: bool = False) -> list[dict]:
         print("Resetting collection...")
         store.reset_collection()
 
-    # rglob (not glob) so crawler output under raw/pdfs/crawled/ and
-    # raw/websie/crawled/ is picked up too; "_versions" holds admin-upload
-    # backups and must never be re-indexed.
     targets = sorted(
         p for p in RAW_PDF_DIR.rglob("*.pdf") if "_versions" not in p.parts
     )
@@ -96,14 +103,20 @@ def ingest_all(reset: bool = False) -> list[dict]:
 
     results = []
     for path in targets:
-        print(f"Ingesting {path.name} ...")
+        doc = repo.get_document(path.name)
+        if doc and doc.get("status") != "ACTIVE":
+            print(f"Skipping non-active document {path.name} (status: {doc.get('status')})")
+            continue
+        st = doc.get("status") if doc else "ACTIVE"
+        print(f"Ingesting {path.name} (status: {st}) ...")
         try:
-            result = ingest_file(path)
+            result = ingest_file(path, uploaded_by="system", replace=True, status=st)
         except Exception as exc:
             print(f"  ! skipped: {exc}")
             continue
         print(f"  -> {result['chunks']} chunks")
         results.append(result)
+
 
     # A full scan just ran, so it's authoritative: drop any registry entry
     # (and its chunks) whose file is no longer on disk - e.g. removed by hand
