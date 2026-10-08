@@ -24,10 +24,12 @@ def remove_document(source: str) -> bool:
 def log_chat(
     question: str, answer: str, sources: list[dict], grounded: bool,
     conversation_id: str | None = None,
+    owner_id: str | None = None,
 ) -> None:
     """Persist one Q&A turn - also the raw material for a future LoRA run."""
     trimmed_sources = [
         {"source": s.get("source"), "page": s.get("page"), "section": s.get("section")}
         for s in sources
     ]
-    repo.insert_chat(question, answer, grounded, trimmed_sources, conversation_id)
+    repo.insert_chat(question, answer, grounded, trimmed_sources, conversation_id, owner_id=owner_id)
+

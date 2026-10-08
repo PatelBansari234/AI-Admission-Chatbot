@@ -217,6 +217,45 @@ def _candidates(question: str) -> list[dict]:
     return merged
 
 
+_QUERY_STOP_WORDS = {
+    "what", "when", "where", "which", "who", "whom", "whose", "why", "how",
+    "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+    "do", "does", "did", "the", "a", "an", "and", "or", "but", "if", "then",
+    "this", "that", "these", "those", "for", "with", "about", "against", "between",
+    "into", "through", "during", "before", "after", "above", "below", "to", "from",
+    "up", "down", "in", "out", "on", "off", "over", "under", "again", "further",
+    "then", "once", "here", "there", "all", "any", "both", "each", "few", "more",
+    "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same",
+    "so", "than", "too", "very", "can", "will", "just", "should", "now",
+    "sxca", "college", "st", "xavier", "xaviers", "xavier's", "ahmedabad", "tell",
+    "give", "info", "information", "please", "me", "much", "many", "i", "you",
+}
+
+
+def _extract_distinctive_query_tokens(question: str) -> list[str]:
+    tokens = _tokenize(question)
+    return [t for t in tokens if len(t) >= 3 and t not in _QUERY_STOP_WORDS]
+
+
+def _has_strong_query_alignment(distinctive_tokens: list[str], passage_text: str) -> bool:
+    if not distinctive_tokens:
+        return False
+    passage_tokens = set(_tokenize(passage_text))
+
+    def matches_token(qt: str) -> bool:
+        if qt in passage_tokens:
+            return True
+        base = qt.rstrip("s")
+        if len(base) >= 3 and any(pt == base or pt.rstrip("s") == base for pt in passage_tokens if len(pt) >= 3):
+            return True
+        return False
+
+    matched = [qt for qt in distinctive_tokens if matches_token(qt)]
+    if len(distinctive_tokens) <= 2:
+        return len(matched) == len(distinctive_tokens)
+    return len(matched) >= len(distinctive_tokens) * 0.75
+
+
 def retrieve(question: str, top_k: int = TOP_K) -> list[dict]:
     """Reranked passages, filtered by relative confidence so off-topic
     questions get nothing and terse-but-genuine ones aren't dropped just
@@ -257,8 +296,31 @@ def retrieve(question: str, top_k: int = TOP_K) -> list[dict]:
     if top_score < RERANK_FLOOR:
         return []
 
-    cutoff = max(RERANK_FLOOR, top_score * RERANK_RELATIVE_MARGIN)
-    return [c for c in candidates if c["boosted_score"] >= cutoff][:top_k]
+    margin_cutoff = top_score * RERANK_RELATIVE_MARGIN
+    distinctive_tokens = _extract_distinctive_query_tokens(question)
+
+    retained = []
+    for i, c in enumerate(candidates):
+        score = c["boosted_score"]
+        if score < RERANK_FLOOR:
+            continue
+
+        # 1. Preserve the top-ranked result (above floor)
+        if i == 0:
+            retained.append(c)
+            continue
+
+        # 2. Also preserve candidates that have strong lexical/semantic alignment with distinctive query terms
+        if _has_strong_query_alignment(distinctive_tokens, c["text"]):
+            retained.append(c)
+            continue
+
+        # 3. Apply the relative-margin rule only when the lower-ranked passage has no meaningful query alignment
+        if score >= margin_cutoff:
+            retained.append(c)
+
+    return retained[:top_k]
+
 
 
 def as_sources(passages: list[dict]) -> list[dict]:

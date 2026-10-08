@@ -19,7 +19,6 @@ questions into one (which would hide a real gap from the admin).
 from collections import Counter
 
 import numpy as np
-from sklearn.cluster import AgglomerativeClustering
 
 from backend.config import INTENT_DISTANCE_THRESHOLD
 from backend.db import repo
@@ -52,13 +51,30 @@ def compute_intents(
     if len(questions) == 1:
         labels = [0]
     else:
-        clustering = AgglomerativeClustering(
-            n_clusters=None,
-            metric="cosine",
-            linkage="average",
-            distance_threshold=distance_threshold,
-        )
-        labels = clustering.fit_predict(embeddings)
+        try:
+            from sklearn.cluster import AgglomerativeClustering
+            clustering = AgglomerativeClustering(
+                n_clusters=None,
+                metric="cosine",
+                linkage="average",
+                distance_threshold=distance_threshold,
+            )
+            labels = clustering.fit_predict(embeddings)
+        except Exception:
+            labels = [-1] * len(questions)
+            current_label = 0
+            norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+            norms[norms == 0] = 1.0
+            norm_emb = embeddings / norms
+            for i in range(len(questions)):
+                if labels[i] != -1:
+                    continue
+                labels[i] = current_label
+                sims = norm_emb @ norm_emb[i]
+                for j in range(i + 1, len(questions)):
+                    if labels[j] == -1 and (1.0 - sims[j]) <= distance_threshold:
+                        labels[j] = current_label
+                current_label += 1
 
     clusters: dict[int, list[int]] = {}
     for idx, label in enumerate(labels):

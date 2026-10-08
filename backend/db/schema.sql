@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS document_history (
 CREATE TABLE IF NOT EXISTS conversations (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     college_id    INTEGER REFERENCES colleges(id),
+    owner_id      TEXT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_activity TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS conversation_memory (
     course          TEXT,
     qualification   TEXT,
     summary         TEXT,
+    profile         JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -139,6 +141,8 @@ ALTER TABLE documents   ADD COLUMN IF NOT EXISTS college_id INTEGER REFERENCES c
 ALTER TABLE chat_history ADD COLUMN IF NOT EXISTS college_id INTEGER REFERENCES colleges(id);
 ALTER TABLE crawl_runs   ADD COLUMN IF NOT EXISTS college_id INTEGER REFERENCES colleges(id);
 ALTER TABLE chat_history ADD COLUMN IF NOT EXISTS conversation_id UUID REFERENCES conversations(id);
+ALTER TABLE conversation_memory ADD COLUMN IF NOT EXISTS profile JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS owner_id TEXT;
 -- documents.source was globally UNIQUE, but two colleges could share a
 -- filename (e.g. both call their prospectus "Prospectus.pdf"), so it needs
 -- to move to a per-college constraint instead. init_db.py splits this file
@@ -155,6 +159,7 @@ CREATE INDEX IF NOT EXISTS idx_documents_college_id ON documents (college_id);
 CREATE INDEX IF NOT EXISTS idx_chat_history_college_id ON chat_history (college_id);
 CREATE INDEX IF NOT EXISTS idx_chat_history_conversation_id ON chat_history (conversation_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_last_activity ON conversations (last_activity DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_owner_id ON conversations (owner_id);
 CREATE INDEX IF NOT EXISTS idx_course_eligibility_college_id ON course_eligibility (college_id);
 CREATE INDEX IF NOT EXISTS idx_course_eligibility_course_name ON course_eligibility (course_name);
 CREATE INDEX IF NOT EXISTS idx_course_eligibility_eligibility ON course_eligibility (eligibility);

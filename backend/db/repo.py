@@ -176,7 +176,27 @@ def delete_document(source: str) -> bool:
 # --- conversations -----------------------------------------------------------
 
 
-def get_or_create_conversation(conversation_id: str) -> None:
+def verify_conversation_owner(conversation_id: str, owner_id: str | None) -> bool:
+    """Checks if conversation exists and belongs to owner_id.
+    Returns True if conversation doesn't exist yet, or belongs to owner_id, or has NULL owner.
+    Returns False if conversation belongs to a different owner.
+    """
+    if not conversation_id or not owner_id:
+        return True
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT owner_id FROM conversations WHERE id = %s",
+            (conversation_id,),
+        ).fetchone()
+        if not row:
+            return True  # New conversation, allowed to create
+        db_owner = row["owner_id"]
+        if db_owner is None:
+            return True  # Legacy unowned conversation
+        return db_owner == owner_id
+
+
+def get_or_create_conversation(conversation_id: str, owner_id: str | None = None) -> None:
     """id comes from the frontend (crypto.randomUUID(), one per page load) -
     this just makes sure a row exists for it and bumps last_activity, so a
     conversation never needs an explicit "start" call before its first
@@ -184,51 +204,91 @@ def get_or_create_conversation(conversation_id: str) -> None:
     with get_conn() as conn:
         conn.execute(
             """
-            INSERT INTO conversations (id, college_id)
-            VALUES (%s, %s)
-            ON CONFLICT (id) DO UPDATE SET last_activity = now()
+            INSERT INTO conversations (id, college_id, owner_id)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+                owner_id = COALESCE(conversations.owner_id, EXCLUDED.owner_id),
+                last_activity = now()
             """,
-            (conversation_id, default_college_id()),
+            (conversation_id, default_college_id(), owner_id),
         )
         conn.commit()
 
 
-def get_conversation_context(conversation_id: str) -> dict | None:
+_IN_MEMORY_CONTEXTS: dict[str, dict] = {}
+
+
+def get_conversation_context(conversation_id: str | None, owner_id: str | None = None) -> dict | None:
+    if not conversation_id:
+        return _IN_MEMORY_CONTEXTS.get("default")
+    if owner_id and not verify_conversation_owner(conversation_id, owner_id):
+        return None
     with get_conn() as conn:
-        return conn.execute(
-            "SELECT course, qualification, summary FROM conversation_memory "
+        row = conn.execute(
+            "SELECT course, qualification, summary, profile FROM conversation_memory "
             "WHERE conversation_id = %s",
             (conversation_id,),
         ).fetchone()
+        if row:
+            d = dict(row)
+            if not d.get("profile") or not isinstance(d["profile"], dict):
+                d["profile"] = {}
+            return d
+        return _IN_MEMORY_CONTEXTS.get(conversation_id)
 
 
 def update_conversation_context(
-    conversation_id: str, course: str | None = None,
-    qualification: str | None = None, summary: str | None = None,
+    conversation_id: str | None,
+    course: str | None = None,
+    qualification: str | None = None,
+    summary: str | None = None,
+    profile: dict | None = None,
+    owner_id: str | None = None,
 ) -> None:
     """Upsert, and only overwrite a field when a non-None value is given -
     so e.g. a turn that mentions a qualification but not a course doesn't
     blank out the course learned two turns ago."""
+    if conversation_id and owner_id and not verify_conversation_owner(conversation_id, owner_id):
+        return
+    cid_key = conversation_id or "default"
+    current = _IN_MEMORY_CONTEXTS.setdefault(cid_key, {"course": None, "qualification": None, "summary": None, "profile": {}})
+    if course is not None:
+        current["course"] = course
+    if qualification is not None:
+        current["qualification"] = qualification
+    if summary is not None:
+        current["summary"] = summary
+    if profile is not None:
+        current_prof = current.setdefault("profile", {})
+        current_prof.update(profile)
+
+    if not conversation_id:
+        return
+
+    profile_json = Jsonb(current["profile"]) if current.get("profile") else Jsonb({})
     with get_conn() as conn:
         conn.execute(
             """
-            INSERT INTO conversation_memory (conversation_id, course, qualification, summary)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO conversation_memory (conversation_id, course, qualification, summary, profile)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (conversation_id) DO UPDATE SET
                 course = COALESCE(EXCLUDED.course, conversation_memory.course),
                 qualification = COALESCE(EXCLUDED.qualification, conversation_memory.qualification),
                 summary = COALESCE(EXCLUDED.summary, conversation_memory.summary),
+                profile = CASE WHEN EXCLUDED.profile IS NOT NULL THEN EXCLUDED.profile ELSE conversation_memory.profile END,
                 updated_at = now()
             """,
-            (conversation_id, course, qualification, summary),
+            (conversation_id, course, qualification, summary, profile_json),
         )
         conn.commit()
 
 
-def get_recent_turns(conversation_id: str, limit_turns: int = 4) -> list[dict]:
+def get_recent_turns(conversation_id: str, limit_turns: int = 4, owner_id: str | None = None) -> list[dict]:
     """Most recent `limit_turns` Q&A pairs, oldest first, expanded into
     alternating user/assistant messages - chat_history already stores one
     row per turn, so there's no separate messages table to keep in sync."""
+    if owner_id and not verify_conversation_owner(conversation_id, owner_id):
+        return []
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT question, answer FROM chat_history "
@@ -242,8 +302,8 @@ def get_recent_turns(conversation_id: str, limit_turns: int = 4) -> list[dict]:
     return turns
 
 
-def get_recent_chat_sources(conversation_id: str) -> list[dict]:
-    if not conversation_id:
+def get_recent_chat_sources(conversation_id: str, owner_id: str | None = None) -> list[dict]:
+    if not conversation_id or (owner_id and not verify_conversation_owner(conversation_id, owner_id)):
         return []
     with get_conn() as conn:
         row = conn.execute(
@@ -262,7 +322,10 @@ def get_recent_chat_sources(conversation_id: str) -> list[dict]:
 def insert_chat(
     question: str, answer: str, grounded: bool, sources: list[dict],
     conversation_id: str | None = None,
+    owner_id: str | None = None,
 ) -> None:
+    if conversation_id and owner_id and not verify_conversation_owner(conversation_id, owner_id):
+        return
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO chat_history (college_id, conversation_id, question, answer, grounded, sources) "
@@ -270,6 +333,7 @@ def insert_chat(
             (default_college_id(), conversation_id, question, answer, grounded, Jsonb(sources)),
         )
         conn.commit()
+
 
 
 def list_chat(limit: int | None = None) -> list[dict]:

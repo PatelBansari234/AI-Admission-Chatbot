@@ -17,11 +17,12 @@ def _load():
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
+    target_device = "cuda:0" if torch.cuda.is_available() else LLM_DEVICE
     tokenizer = AutoTokenizer.from_pretrained(LLM_PATH)
     model = AutoModelForCausalLM.from_pretrained(
         LLM_PATH,
         torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map=LLM_DEVICE,
+        device_map=target_device,
     )
     if USE_FINE_TUNED:
         if not FINE_TUNED_ADAPTER_DIR.exists():

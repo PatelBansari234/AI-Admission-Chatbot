@@ -66,14 +66,18 @@ def as_sources(rows: list[dict]) -> list[dict]:
         if row.get("fee_amount") is not None:
             excerpt += f" | Fee: ₹{row['fee_amount']}/semester"
         src_doc = row["source_document"]
-        url = repo.get_url_for_source(src_doc)
+        url = repo.get_url_for_source(src_doc) or "https://sxca.edu.in/"
+        title = "SXCA Admission Brochure 2025-26" if "Brochure" in src_doc else "SXCA Official Admission Records"
         sources.append({
-            "source": src_doc,
+            "title": title,
+            "type": "pdf" if src_doc.endswith(".pdf") else "structured",
             "doc_type": "structured",
-            "page": None,
+            "page": 1 if src_doc.endswith(".pdf") else None,
             "section": f"{row['course_name']} ({row['category']})",
             "url": url,
-            "score": None,
+            "score": 1.0,
             "excerpt": excerpt,
+            "snippet": excerpt,
+            "source": src_doc,
         })
     return sources

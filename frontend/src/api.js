@@ -27,6 +27,26 @@ export function setToken(token) {
   else sessionStorage.removeItem(TOKEN_KEY);
 }
 
+export function getUserRole() {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const body = parts[0];
+    const padded = body + "=".repeat((4 - (body.length % 4)) % 4);
+    const jsonStr = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+    const payload = JSON.parse(jsonStr);
+    return payload.role || null;
+  } catch {
+    return null;
+  }
+}
+
+export function isAdminAuthenticated() {
+  return getUserRole() === "admin";
+}
+
 export async function getHealth() {
   const res = await fetch("/api/health");
   if (!res.ok) throw new Error("Health check failed");
@@ -41,7 +61,7 @@ export async function login(username, password) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || "Login failed");
-  return data; // {token, username}
+  return data; // {token, username, role}
 }
 
 /** Fetch wrapper for /api/admin/* routes: attaches the bearer token and
@@ -52,10 +72,12 @@ export async function authFetch(path, options = {}) {
     ...options,
     headers: { ...(options.headers || {}), Authorization: `Bearer ${getToken()}` },
   });
-  if (res.status === 401) {
-    setToken("");
-    window.dispatchEvent(new Event("admin-unauthorized"));
-    throw new Error("Session expired, please log in again");
+  if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
+      setToken("");
+      window.dispatchEvent(new Event("admin-unauthorized"));
+    }
+    throw new Error(res.status === 403 ? "Admin access required" : "Session expired, please log in again");
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || "Request failed");
@@ -64,11 +86,12 @@ export async function authFetch(path, options = {}) {
 
 /** Streams /api/chat/stream as an async generator of {type, data} events:
  * "sources" (once), "token" (many), "done" (once), "error" (on failure). */
-export async function* streamChat(question, history) {
+export async function* streamChat(question, history, signal) {
   const res = await fetch("/api/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, history, conversation_id: conversationId }),
+    signal,
   });
   if (!res.ok || !res.body) {
     throw new Error("Could not reach the server. Please make sure the backend is running.");
@@ -91,3 +114,4 @@ export async function* streamChat(question, history) {
     }
   }
 }
+

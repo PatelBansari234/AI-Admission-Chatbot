@@ -51,17 +51,18 @@ def _sign(payload: bytes) -> str:
     return _b64(hmac.new(SECRET_KEY.encode(), payload, sha256).digest())
 
 
-def create_token(username: str) -> str:
+def create_token(username: str, role: str = "admin") -> str:
     payload = json.dumps({
         "sub": username,
+        "role": role,
         "exp": int(time.time()) + TOKEN_TTL_SECONDS,
         "jti": secrets.token_hex(8),
     }).encode()
     return f"{_b64(payload)}.{_sign(payload)}"
 
 
-def verify_token(token: str) -> str:
-    """Return the username, or raise 401."""
+def verify_token_payload(token: str) -> dict:
+    """Return the decoded payload dict, or raise 401."""
     try:
         body, signature = token.split(".", 1)
         payload = _unb64(body)
@@ -74,11 +75,39 @@ def verify_token(token: str) -> str:
     data = json.loads(payload)
     if data.get("exp", 0) < time.time():
         raise HTTPException(status_code=401, detail="Session expired, please log in again")
-    return data["sub"]
+    return data
+
+
+def verify_token(token: str) -> str:
+    """Return the username, or raise 401."""
+    return verify_token_payload(token)["sub"]
 
 
 def require_admin(authorization: str = Header(default="")) -> str:
-    """FastAPI dependency guarding every /api/admin route."""
+    """FastAPI dependency guarding every /api/admin route. Strictly requires role='admin'."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Admin login required")
-    return verify_token(authorization[7:])
+    data = verify_token_payload(authorization[7:])
+    if data.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return data["sub"]
+
+
+def resolve_owner_id(authorization: str = "", session_token: str = "") -> str:
+    """Resolve conversation owner identity from JWT header or guest session token."""
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:].strip()
+        try:
+            payload = verify_token_payload(token)
+            username = payload.get("sub")
+            if username:
+                return f"user:{username}"
+        except HTTPException:
+            pass
+    if session_token and session_token.strip():
+        st = session_token.strip()
+        hashed = sha256(st.encode()).hexdigest()[:16]
+        return f"session:{hashed}"
+    return "anonymous"
+
+

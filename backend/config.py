@@ -85,6 +85,9 @@ RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-base")
 # falls back to CPU for that one request if the GPU genuinely runs out of
 # memory, rather than failing the request.
 RERANK_DEVICE = os.getenv("RERANK_DEVICE") or ("cuda" if torch.cuda.is_available() else "cpu")
+if RERANK_DEVICE == "cuda" and not torch.cuda.is_available():
+    RERANK_DEVICE = "cpu"
+
 RERANK_BATCH_SIZE = int(os.getenv("RERANK_BATCH_SIZE", "8"))
 # A single fixed cutoff on reranker score doesn't work: calibration showed a
 # genuinely correct match for a terse query ("holiday list ?" -> the actual
@@ -129,7 +132,7 @@ INTENT_DISTANCE_THRESHOLD = float(os.getenv("INTENT_DISTANCE_THRESHOLD", "0.17")
 # Off means a question the index can't answer just gets the fixed refusal -
 # no reaching out to the website at all. Set False when the index is meant
 # to be scoped to specific uploaded documents only (e.g. one prospectus).
-LIVE_CRAWL_FALLBACK_ENABLED = os.getenv("LIVE_CRAWL_FALLBACK_ENABLED", "true").lower() == "true"
+LIVE_CRAWL_FALLBACK_ENABLED = os.getenv("LIVE_CRAWL_FALLBACK_ENABLED", "false").lower() == "true"
 
 # The admin crawl endpoint only accepts start URLs on this domain, so an
 # authenticated-but-careless (or compromised) admin session can't be used to

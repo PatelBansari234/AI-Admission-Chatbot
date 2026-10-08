@@ -54,3 +54,9 @@ def put(key: str, value: dict) -> None:
         _cache.move_to_end(key)
         while len(_cache) > _MAX_ENTRIES:
             _cache.popitem(last=False)  # evict least-recently-used
+
+
+def clear() -> None:
+    """Explicitly clear the in-memory cache."""
+    with _lock:
+        _cache.clear()
