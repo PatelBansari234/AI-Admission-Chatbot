@@ -84,34 +84,62 @@ export async function authFetch(path, options = {}) {
   return data;
 }
 
+function mergeSignals(sig1, sig2) {
+  if (!sig1) return sig2;
+  if (!sig2) return sig1;
+  const controller = new AbortController();
+  const onAbort = () => controller.abort(sig1.reason || sig2.reason);
+  if (sig1.aborted) onAbort();
+  else if (sig2.aborted) onAbort();
+  else {
+    sig1.addEventListener("abort", onAbort, { once: true });
+    sig2.addEventListener("abort", onAbort, { once: true });
+  }
+  return controller.signal;
+}
+
 /** Streams /api/chat/stream as an async generator of {type, data} events:
  * "sources" (once), "token" (many), "done" (once), "error" (on failure). */
 export async function* streamChat(question, history, signal) {
-  const res = await fetch("/api/chat/stream", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, history, conversation_id: conversationId }),
-    signal,
-  });
-  if (!res.ok || !res.body) {
-    throw new Error("Could not reach the server. Please make sure the backend is running.");
-  }
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    const err = new Error("The request timed out. Please check your connection and try again.");
+    err.name = "TimeoutError";
+    timeoutController.abort(err);
+  }, 30000);
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+  const combinedSignal = mergeSignals(signal, timeoutController.signal);
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop();
-    for (const part of parts) {
-      const line = part.trim();
-      if (!line.startsWith("data:")) continue;
-      yield JSON.parse(line.slice(5));
+  try {
+    const res = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, history, conversation_id: conversationId }),
+      signal: combinedSignal,
+    });
+    if (!res.ok || !res.body) {
+      throw new Error("Could not reach the server. Please make sure the backend is running.");
     }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      clearTimeout(timeoutId);
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop();
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data:")) continue;
+        yield JSON.parse(line.slice(5));
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
 import { getHealth, isAdminAuthenticated } from "./api.js";
 import ChatPage from "./components/ChatPage.jsx";
-import AdminModal from "./components/admin/AdminModal.jsx";
+import AdminPortal from "./admin/AdminPortal.jsx";
 
 export default function App() {
   const [collegeName, setCollegeName] = useState("St. Xavier's College (Autonomous), Ahmedabad");
-  const [adminOpen, setAdminOpen] = useState(false);
   const [restartCount, setRestartCount] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(() => isAdminAuthenticated());
+  const [isAdminPortal, setIsAdminPortal] = useState(() => {
+    return (
+      window.location.pathname.startsWith("/admin") ||
+      window.location.hash === "#admin" ||
+      window.location.hash === "#/admin" ||
+      window.location.search.includes("admin")
+    );
+  });
 
   useEffect(() => {
     getHealth()
@@ -18,28 +24,32 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  // Update admin status on unauthorized event, storage change, or keyboard shortcut
+  // Listen for route changes (popstate, hashchange) and admin keyboard shortcut
   useEffect(() => {
-    const handleAuth = () => setIsAdmin(isAdminAuthenticated());
-    window.addEventListener("admin-unauthorized", handleAuth);
-    window.addEventListener("storage", handleAuth);
+    const checkRoute = () => {
+      const match =
+        window.location.pathname.startsWith("/admin") ||
+        window.location.hash === "#admin" ||
+        window.location.hash === "#/admin" ||
+        window.location.search.includes("admin");
+      setIsAdminPortal(match);
+    };
 
-    // Administrator shortcut (Ctrl + Shift + A) or URL parameter (?admin or #admin)
+    window.addEventListener("popstate", checkRoute);
+    window.addEventListener("hashchange", checkRoute);
+
+    // Administrator shortcut (Ctrl + Shift + A)
     const handleKey = (e) => {
       if (e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a")) {
         e.preventDefault();
-        setAdminOpen(true);
+        setIsAdminPortal((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKey);
 
-    if (window.location.search.includes("admin") || window.location.hash === "#admin") {
-      setAdminOpen(true);
-    }
-
     return () => {
-      window.removeEventListener("admin-unauthorized", handleAuth);
-      window.removeEventListener("storage", handleAuth);
+      window.removeEventListener("popstate", checkRoute);
+      window.removeEventListener("hashchange", checkRoute);
       window.removeEventListener("keydown", handleKey);
     };
   }, []);
@@ -48,11 +58,20 @@ export default function App() {
     setRestartCount((c) => c + 1);
   }
 
-  function handleCloseAdmin() {
-    setAdminOpen(false);
-    setIsAdmin(isAdminAuthenticated());
+  function handleExitAdmin() {
+    window.location.hash = "";
+    if (window.location.pathname.startsWith("/admin")) {
+      window.history.pushState(null, "", "/");
+    }
+    setIsAdminPortal(false);
   }
 
+  // Render dedicated Admin Portal if requested
+  if (isAdminPortal) {
+    return <AdminPortal onExit={handleExitAdmin} />;
+  }
+
+  // Existing student chatbot interface (untouched)
   return (
     <div className="app-viewport">
       {!isMinimized ? (
@@ -86,6 +105,14 @@ export default function App() {
               <button
                 type="button"
                 className="header-icon-btn"
+                onClick={() => setIsAdminPortal(true)}
+                title="Admin Portal"
+              >
+                ⚙
+              </button>
+              <button
+                type="button"
+                className="header-icon-btn"
                 onClick={() => setIsMinimized(true)}
                 title="Minimize chat"
               >
@@ -113,8 +140,6 @@ export default function App() {
           <span className="launcher-open-arrow">💬</span>
         </div>
       )}
-
-      {adminOpen && <AdminModal onClose={handleCloseAdmin} />}
     </div>
   );
 }

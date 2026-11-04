@@ -30,16 +30,18 @@ def _scheduler_loop():
             settings = repo.get_crawler_settings()
             if settings.get("scheduler_enabled"):
                 now = datetime.now(timezone.utc)
+                interval = settings.get("interval_hours", 24)
                 next_run = settings.get("next_run_at")
                 if not next_run:
-                    interval = settings.get("interval_hours", 24)
                     next_run = now + timedelta(hours=interval)
                     repo.update_crawler_settings(next_run_at=next_run)
 
                 if now >= next_run:
+                    repo.update_crawler_settings(next_run_at=now + timedelta(hours=interval))
                     run_scheduled_crawl()
         except Exception as exc:
             repo.update_crawler_settings(last_status="error", last_error=str(exc))
+
 
         # Check every 30 seconds
         _scheduler_stop.wait(30)

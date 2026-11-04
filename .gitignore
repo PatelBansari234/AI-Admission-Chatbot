@@ -65,6 +65,9 @@ debug_brochure.txt
 data/raw/pdfs/crawled/prospectus-20-21-new.pdf
 data/raw/pdfs/crawled/Prospectus-21-22.pdf
 
+# Third-party cloned repositories
+scratch/IndicTransToolkit/
+
 # IDE & Editor Configurations
 .vscode/
 .claude/

@@ -11,7 +11,11 @@ from backend.rag.prompt import NO_CONTEXT_ANSWER, build_messages
 from backend.rag.retriever import as_sources, normalize_query, retrieve
 from backend.utils.registry import log_chat
 
-NO_INFO_ANSWER = "Sorry, I don't have information about that in the available SXCA materials."
+NO_INFO_ANSWER = (
+    "Sorry, I couldn't verify this information from the available official college sources. "
+    "For confirmation, please contact the college through its official contact details: "
+    "info@sxca.edu.in / +91 79 2630 2872."
+)
 
 _REFUSAL_MARKERS = (
     "don't have that information",
@@ -22,7 +26,19 @@ _REFUSAL_MARKERS = (
     "not available in the college documents",
     "available sxca materials",
     "contact the admission office",
+    "couldn't find this information in the available official sxca sources",
+    "couldn't find this information",
+    "couldn't verify this information",
+    "sorry, i couldn't verify",
+    "official contact details",
+    "official sxca sources",
+    "check the official college website",
+    "દિલગીર છું",
+    "સત્તાવાર સંપર્ક",
+    "ક્ષમા કરેં",
+    "आधिकारिक कॉलेज स्रोतों",
 )
+
 
 
 def _is_refusal(text: str) -> bool:
@@ -385,8 +401,12 @@ def _guard_repetition(answer_text: str, question: str, turns: list[dict]) -> str
     return answer_text
 
 
-def _format_greeting(question: str) -> str:
-    return counsellor.handle_greeting(question)
+def _format_greeting(question: str, profile: dict[str, Any] | None = None) -> str:
+    return counsellor.handle_greeting(question, profile)
+
+
+def _format_identity(question: str, profile: dict[str, Any] | None = None) -> str:
+    return counsellor.handle_identity(question, profile)
 
 
 def _format_chitchat(question: str, profile: dict[str, Any] | None = None) -> str:
@@ -691,21 +711,8 @@ def _format_faculty_pravida_raja(question: str) -> str:
     )
 
 
-def _format_unknown_answer(question: str) -> str:
-    q_low = question.lower()
-    is_guj = bool(re.search(r"[\u0A80-\u0AFF]|kem\s*cho|raja|chhe|che|maare|mane", q_low))
-    is_hi = bool(re.search(r"[\u0900-\u097F]|namaste|kya|hai|chahiye|batao", q_low))
-    if is_guj:
-        return (
-            "હું સત્તાવાર એસએક્સસીએ (SXCA) સ્ત્રોતોમાંથી તે માહિતી ચકાસી શક્યો નથી. "
-            "વધુ સ્પષ્ટતા માટે તમે કોલેજ કાર્યાલયનો info@sxca.edu.in પર સંપર્ક કરી શકો છો."
-        )
-    elif is_hi:
-        return (
-            "मैं उपलब्ध आधिकारिक SXCA स्रोतों से इस जानकारी को सत्यापित नहीं कर पाया। "
-            "अधिक स्पष्टीकरण के लिए आप कॉलेज कार्यालय से info@sxca.edu.in पर संपर्क कर सकते हैं।"
-        )
-    return NO_INFO_ANSWER
+def _format_unknown_answer(question: str, profile: dict[str, Any] | None = None) -> str:
+    return counsellor.get_verified_fallback(question, profile)
 
 
 def validate_evidence(
@@ -824,7 +831,7 @@ def _handle_source_query(question: str, history: list[dict], conversation_id: st
     }
 
 
-def answer(question: str, history: list[dict] | None = None, conversation_id: str | None = None, owner_id: str | None = None) -> dict:
+def _raw_answer(question: str, history: list[dict] | None = None, conversation_id: str | None = None, owner_id: str | None = None) -> dict:
     question = (question or "").strip()
     if not question:
         return {"answer": "Please type a question.", "sources": [], "grounded": False}
@@ -947,7 +954,16 @@ def answer(question: str, history: list[dict] | None = None, conversation_id: st
 
     # 0a. Fast path for bare greetings & pleasantries (<5ms)
     if understanding.get("intent") == "greeting":
-        text = _format_greeting(question)
+        text = _format_greeting(question, understanding.get("profile"))
+        log_chat(question, text, [], grounded=True, conversation_id=conversation_id)
+        res = {"answer": text, "sources": [], "grounded": True, "course": None}
+        if key:
+            cache.put(key, res)
+        return res
+
+    # 0a-2. Fast path for bot identity (Niaa) (<5ms)
+    if understanding.get("intent") == "identity":
+        text = _format_identity(question, understanding.get("profile"))
         log_chat(question, text, [], grounded=True, conversation_id=conversation_id)
         res = {"answer": text, "sources": [], "grounded": True, "course": None}
         if key:
@@ -1355,10 +1371,14 @@ def answer(question: str, history: list[dict] | None = None, conversation_id: st
 
     # 8d. Fast path for Percentage Eligibility
     if understanding.get("intent") == "percentage_eligibility":
-        pct_val = understanding.get("percentage", "65")
-        text = _format_percentage_eligibility_summary(pct_val, understanding.get("qualification"))
-        sources = [{"source": "SXCA-Admission-Brochure-2526.pdf", "doc_type": "pdf", "page": 1, "url": "https://sxca.edu.in/wp-content/uploads/2025/06/SXCA-Admission-Brochure-2526.pdf", "score": 1.0, "excerpt": "Undergraduate Eligibility Criteria"}]
-        result = {"answer": text, "sources": sources, "grounded": True}
+        from backend.rag import query_normalizer
+        parsed = understanding.get("parsed") or query_normalizer.parse_and_normalize(question, understanding.get("profile"))
+        if understanding.get("course") and not parsed.extracted_course:
+            parsed.extracted_course = understanding.get("course")
+        elig_res = query_normalizer.build_percentage_eligibility_response(parsed, understanding.get("profile"))
+        text = elig_res["answer"]
+        sources = elig_res["sources"]
+        result = {"answer": text, "sources": sources, "grounded": elig_res.get("grounded", True)}
         log_chat(question, text, sources, grounded=True, conversation_id=conversation_id)
         if key:
             cache.put(key, result)
@@ -1468,14 +1488,14 @@ def answer(question: str, history: list[dict] | None = None, conversation_id: st
     passages = [] if course_specific else retrieve(search_query)
     is_valid, reason = validate_evidence(question, passages, structured_rows, understanding)
     if not is_valid:
-        text = NO_INFO_ANSWER
+        text = counsellor.get_verified_fallback(question, understanding.get("profile"))
         sources = []
         grounded = False
     else:
         text = qwen.generate(build_messages(question, passages, turns, structured_rows))
         grounded = not _is_refusal(text)
         if not grounded or _is_refusal(text):
-            text = NO_INFO_ANSWER
+            text = counsellor.get_verified_fallback(question, understanding.get("profile"))
             sources = []
             grounded = False
         else:
@@ -1485,6 +1505,34 @@ def answer(question: str, history: list[dict] | None = None, conversation_id: st
     log_chat(question, text, sources, grounded=grounded, conversation_id=conversation_id)
     if key:
         cache.put(key, result)
+    return result
+
+
+def answer(question: str, history: list[dict] | None = None, conversation_id: str | None = None, owner_id: str | None = None) -> dict:
+    from backend.translation.detector import detector
+    from backend.translation.service import translation_service
+
+    cleaned = (question or "").strip()
+    if not cleaned:
+        return {"answer": "Please type a question.", "sources": [], "grounded": False}
+
+    user_lang, conf = detector.detect(cleaned, conversation_id=conversation_id)
+    needs_translation = translation_service.enabled and user_lang != "eng_Latn"
+
+    query_to_run = cleaned
+    if needs_translation:
+        en_query, was_translated = translation_service.translate_to_english(cleaned, src_lang=user_lang)
+        if was_translated:
+            query_to_run = en_query
+
+    result = _raw_answer(query_to_run, history=history, conversation_id=conversation_id, owner_id=owner_id)
+
+    if needs_translation and result.get("answer"):
+        native_ans, was_translated = translation_service.translate_from_english(result["answer"], tgt_lang=user_lang)
+        if was_translated:
+            result["answer"] = native_ans
+        result["language"] = user_lang
+
     return result
 
 
@@ -1498,7 +1546,7 @@ def _stream_attempt(question: str, passages: list[dict], history: list[dict], st
     return full, not _is_refusal(full)
 
 
-def answer_stream(question: str, history: list[dict] | None = None, conversation_id: str | None = None, owner_id: str | None = None):
+def _raw_answer_stream(question: str, history: list[dict] | None = None, conversation_id: str | None = None, owner_id: str | None = None):
     """Yield ("token", str) chunks as the answer streams, then ("sources",
     [...]) and ("done", full) once it's complete.
 
@@ -1672,7 +1720,19 @@ def answer_stream(question: str, history: list[dict] | None = None, conversation
 
     # 0a. Fast path for bare greetings & pleasantries (<5ms)
     if understanding.get("intent") == "greeting":
-        text = _format_greeting(question)
+        text = _format_greeting(question, understanding.get("profile"))
+        log_chat(question, text, [], grounded=True, conversation_id=conversation_id)
+        if key:
+            cache.put(key, {"answer": text, "sources": [], "grounded": True, "course": None})
+        yield "course", None
+        yield "token", text
+        yield "sources", []
+        yield "done", text
+        return
+
+    # 0a-2. Fast path for bot identity (Niaa) (<5ms)
+    if understanding.get("intent") == "identity":
+        text = _format_identity(question, understanding.get("profile"))
         log_chat(question, text, [], grounded=True, conversation_id=conversation_id)
         if key:
             cache.put(key, {"answer": text, "sources": [], "grounded": True, "course": None})
@@ -2185,12 +2245,16 @@ def answer_stream(question: str, history: list[dict] | None = None, conversation
 
     # 8d. Fast path for Percentage Eligibility
     if understanding.get("intent") == "percentage_eligibility":
-        pct_val = understanding.get("percentage", "65")
-        text = _format_percentage_eligibility_summary(pct_val, understanding.get("qualification"))
-        sources = [{"source": "SXCA-Admission-Brochure-2526.pdf", "doc_type": "pdf", "page": 1, "url": "https://sxca.edu.in/wp-content/uploads/2025/06/SXCA-Admission-Brochure-2526.pdf", "score": 1.0, "excerpt": "Undergraduate Eligibility Criteria"}]
+        from backend.rag import query_normalizer
+        parsed = understanding.get("parsed") or query_normalizer.parse_and_normalize(question, understanding.get("profile"))
+        if understanding.get("course") and not parsed.extracted_course:
+            parsed.extracted_course = understanding.get("course")
+        elig_res = query_normalizer.build_percentage_eligibility_response(parsed, understanding.get("profile"))
+        text = elig_res["answer"]
+        sources = elig_res["sources"]
         log_chat(question, text, sources, grounded=True, conversation_id=conversation_id)
         if key:
-            cache.put(key, {"answer": text, "sources": sources, "grounded": True})
+            cache.put(key, {"answer": text, "sources": sources, "grounded": elig_res.get("grounded", True)})
         yield "token", text
         yield "sources", sources
         yield "done", text
@@ -2318,7 +2382,7 @@ def answer_stream(question: str, history: list[dict] | None = None, conversation
     passages = [] if course_specific else retrieve(search_query)
     is_valid, reason = validate_evidence(question, passages, structured_rows, understanding)
     if not is_valid:
-        full = NO_INFO_ANSWER
+        full = counsellor.get_verified_fallback(question, understanding.get("profile"))
         sources = []
         grounded = False
         yield "token", full
@@ -2332,7 +2396,7 @@ def answer_stream(question: str, history: list[dict] | None = None, conversation
     full, grounded = yield from _stream_attempt(question, passages, turns, structured_rows)
 
     if not grounded or _is_refusal(full):
-        full = NO_INFO_ANSWER
+        full = counsellor.get_verified_fallback(question, understanding.get("profile"))
         sources = []
         grounded = False
         yield "restart", None
@@ -2345,3 +2409,26 @@ def answer_stream(question: str, history: list[dict] | None = None, conversation
         cache.put(key, {"answer": full, "sources": sources, "grounded": grounded})
     yield "sources", sources
     yield "done", full
+
+
+def answer_stream(question: str, history: list[dict] | None = None, conversation_id: str | None = None, owner_id: str | None = None):
+    from backend.translation.detector import detector
+    from backend.translation.service import translation_service
+
+    cleaned = (question or "").strip()
+    if not cleaned:
+        yield "done", "Please type a question."
+        return
+
+    user_lang, conf = detector.detect(cleaned, conversation_id=conversation_id)
+    needs_translation = translation_service.enabled and user_lang != "eng_Latn"
+
+    if needs_translation:
+        res = answer(cleaned, history=history, conversation_id=conversation_id, owner_id=owner_id)
+        yield "token", res["answer"]
+        yield "sources", res.get("sources", [])
+        yield "done", res["answer"]
+        return
+
+    for event in _raw_answer_stream(cleaned, history=history, conversation_id=conversation_id, owner_id=owner_id):
+        yield event

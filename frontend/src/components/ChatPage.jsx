@@ -151,9 +151,15 @@ export default function ChatPage({ collegeName, restartTrigger }) {
     setMessages((prev) => [...prev, { id: nextId++, role: "user", text: trimmed }]);
 
     const botId = nextId++;
+    const isSimpleGreetingOrIdentity = /^(?:hi+|hello+|hey+|heya|kem\s*cho|majama\s*ne|maza\s*ma\s*ne|namaste|namaskar|pranam|tame\s*kon\s*cho|who\s*are\s*you|what\s*is\s*your\s*name)\b/i.test(trimmed);
     setMessages((prev) => [
       ...prev,
-      { id: botId, role: "bot", text: "Finding the latest admission details...", pending: true },
+      {
+        id: botId,
+        role: "bot",
+        text: isSimpleGreetingOrIdentity ? "Niaa is typing..." : "Finding the latest admission details...",
+        pending: true,
+      },
     ]);
     setSending(true);
 
@@ -180,19 +186,27 @@ export default function ChatPage({ collegeName, restartTrigger }) {
         }
       }
       if (answer) {
-        patchMessage(botId, { sources });
+        patchMessage(botId, { sources, pending: false });
         historyRef.current = [
           ...baseHistory,
           { role: "user", content: trimmed },
           { role: "assistant", content: answer },
         ].slice(-6);
+      } else {
+        patchMessage(botId, {
+          text: "I couldn't retrieve a response from the college records at the moment. Please try again or ask another question.",
+          pending: false,
+        });
       }
     } catch (err) {
       if (err.name === "AbortError") {
-        // Stopped by user: preserve tokens received so far
-        patchMessage(botId, { pending: false });
+        patchMessage(botId, { text: answer || "Response cancelled.", pending: false });
       } else {
-        patchMessage(botId, { text: err.message, pending: false });
+        const errorMsg =
+          err.name === "TimeoutError"
+            ? "The request timed out. Please check your connection and try again."
+            : (err.message || "Unable to reach the server. Please try again.");
+        patchMessage(botId, { text: errorMsg, pending: false });
       }
     } finally {
       if (abortControllerRef.current === controller) {

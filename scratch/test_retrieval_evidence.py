@@ -8,7 +8,7 @@ from backend.rag import counsellor, query_rewrite, pipeline
 from backend.llm import qwen
 from backend.rag import cache
 
-EXACT_NO_INFO = "Sorry, I don't have information about that in the available SXCA materials."
+EXACT_NO_INFO = pipeline.NO_INFO_ANSWER
 
 def run_tracked(question, history=None):
     cache.clear()
@@ -83,7 +83,7 @@ def test_retrieval_evidence():
 
     assert res3.get("status") == "AMBIGUOUS"
     assert "multiple people" in res3["answer"].lower() or "specify the full name" in res3["answer"].lower()
-    assert "Nisarg Vyas" in res3["answer"] and "Nisarg Patel" in res3["answer"]
+    assert "Nisarg Vyas" in res3["answer"] and "Nisarg Patil" in res3["answer"]
     assert not qwen_called3, "Qwen must not be called for ambiguous entity"
     print("PASS: TEST 3 verified (Ambiguous entity -> clarification with candidates list)")
 

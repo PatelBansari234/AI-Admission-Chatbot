@@ -55,11 +55,14 @@ question -> [PDF pool: vector + BM25]     -\
 | Embeddings | [backend/embeddings/embedder.py](backend/embeddings/embedder.py) |
 | Vector store (Chroma) | [backend/vectorstore/store.py](backend/vectorstore/store.py) |
 | Retrieval + prompt | [backend/rag/](backend/rag/) |
+| Query Normalization & Slang Handling | [backend/rag/query_normalizer.py](backend/rag/query_normalizer.py) |
+| 22 Indic Languages Translation | [backend/translation/](backend/translation/) |
 | Local Qwen model | [backend/llm/qwen.py](backend/llm/qwen.py) |
-| API + auth + admin | [backend/api/](backend/api/) |
+| API + auth + admin endpoints | [backend/api/](backend/api/) |
+| Admin Review Store | [backend/utils/admin_reviews.py](backend/utils/admin_reviews.py) |
 | Website crawler (BFS/DFS/A*) | [backend/crawler/](backend/crawler/) |
 | Database (Postgres) | [backend/db/](backend/db/) |
-| UI (React + Vite) | [frontend/src/](frontend/src/) |
+| UI (Chatbot + Admin Portal) | [frontend/src/](frontend/src/) |
 
 ### Grounding
 
@@ -588,22 +591,28 @@ clusters. A false split just shows up as two rows; a false merge would hide a
 real distinct question behind one label, which is the worse failure mode for
 an admin trying to see what's actually being asked.
 
-## Admin panel
+## Admin Portal & Management System
 
-* **Documents** - upload a new/updated PDF; it is saved to `data/raw/` and indexed
-  immediately. Re-uploading the same filename replaces the old chunks (no stale
-  duplicates) and keeps a timestamped copy under `_versions/`. Also delete files
-  and rebuild the whole index.
-* **Website crawler** - trigger a crawl of the college site (see above) and view
-  past run history.
-* **Questions asked** - every Q&A is logged to the `chat_history` table,
-  flagging the ones that could not be answered so you know what to add next.
-* **Intents** - the same log grouped by meaning (see above), most-asked first,
-  with the answered-from-docs rate per intent.
-* **Account** - change the admin password.
+The chatbot provides a dedicated, enterprise-grade React Admin Portal accessible via shortcut (`Ctrl + Shift + A`), URL route (`/admin` or `#admin`), or the gear icon in the chat header:
 
-Auth is bcrypt password hashing plus HMAC-signed expiring tokens; every
-`/api/admin/*` route requires a valid token.
+* **Overview Dashboard** (`frontend/src/admin/OverviewDashboard.jsx`): Real-time metrics on total students assisted, documents indexed, crawler status, intent clusters, and unanswered questions requiring human review.
+* **System Health Monitor** (`frontend/src/admin/SystemHealth.jsx`): Real-time telemetry monitoring:
+  - **FastAPI Backend**: Uptime, API responsiveness, and active routes.
+  - **PostgreSQL Database**: Connection pool status, latency, and database integrity.
+  - **ChromaDB Vector Store**: Total collections, active chunk count, and embedding health.
+  - **Local Qwen LLM**: Memory allocation, CUDA acceleration, and cached weights status.
+* **PDF Knowledge Management** (`frontend/src/admin/PdfKnowledgeManagement.jsx`):
+  - **Drag-and-Drop PDF Upload**: Validates PDF file extensions and `%PDF-` magic bytes, extracts text/tables, creates embeddings, and updates ChromaDB with zero downtime.
+  - **Version Archival**: Automatic timestamped backup under `_versions/` upon re-uploading modified prospectuses.
+  - **Granular Single-Document Deletion**: Safely purges an individual PDF's chunks and embeddings from ChromaDB without wiping the global index or other sources.
+* **Unanswered Question Review Queue** (`frontend/src/admin/UnansweredQuestionReview.jsx`):
+  - Surfaces low-evidence and ungrounded student queries logged to `chat_history`.
+  - Non-disruptive review tracking persisted in `data/admin_reviews.json` via `backend/utils/admin_reviews.py` to maintain PostgreSQL schema purity.
+  - Review status attribution with reviewer username, timestamp, and notes.
+* **Website Crawler Control**: Trigger BFS, DFS, or A* web crawls of the college site and inspect past crawl logs.
+* **Intent Analytics**: Inspect top query clusters, frequency distribution, and grounding rates.
+
+Auth uses secure bcrypt password hashing and HMAC-signed JWT tokens; all `/api/admin/*` endpoints strictly enforce admin authentication.
 
 ## Database
 
@@ -732,9 +741,33 @@ server - off by default. `backend/llm/qwen.py` loads the base model, then
 merges the adapter on top if the flag is set and the adapter directory
 exists (raises clearly if the flag is set but no adapter was trained yet).
 
+## 22 Scheduled Indian Languages Support (IndicTrans2)
+
+The chatbot features native, end-to-end support for all **22 languages recognized under the Eighth Schedule of the Indian Constitution** as well as English:
+- **Languages Covered**: Assamese, Bengali, Bodo, Dogri, Gujarati, Hindi, Kannada, Kashmiri (Perso-Arabic & Devanagari), Konkani, Maithili, Malayalam, Manipuri (Bengali & Meitei Mayek), Marathi, Nepali, Odia, Punjabi (Gurmukhi), Sanskrit, Santali (Ol Chiki), Sindhi (Arabic & Devanagari), Tamil, Telugu, and Urdu.
+- **Unicode Script & Lexical Detection** (`backend/translation/detector.py`):
+  Identifies native scripts across Unicode code point blocks (Devanagari, Gujarati, Bengali, Gurmukhi, Odia, Tamil, Telugu, Kannada, Malayalam, Perso-Arabic, Ol Chiki, and Meitei Mayek). Uses distinctive lexical markers to disambiguate shared scripts (e.g. distinguishing Hindi, Marathi, Nepali, Sanskrit, and Maithili within Devanagari).
+- **IndicTrans2 Modular Architecture** (`backend/translation/service.py`):
+  Utilizes AI4Bharat's state-of-the-art `prajdabre/rotary-indictrans2-indic-en-dist-200M` and `rotary-indictrans2-en-indic-dist-200M` lightweight distilled models.
+- **Strict Entity & Fact Masking**:
+  Before translation, numbers, fees, percentages, emails, phone numbers, course codes (e.g., BCA, B.Sc, M.Sc), and SXCA URL links are isolated via placeholder masking so translation never hallucinates or mutates figures.
+- **Zero Overhead Passthrough**:
+  Standard English queries bypass translation entirely with 0ms penalty.
+
+## User-Query Normalization & Slang Handling
+
+Real students often type using WhatsApp/SMS shorthand, phonetic slang, or informal phrasing. The query normalizer (`backend/rag/query_normalizer.py`) processes input before retrieval without altering factual meaning:
+- **WhatsApp / Gen Z Shorthand**: Automatically standardizes abbreviations like `pls`/`plz` → `please`, `u` → `you`, `ur` → `your`, `wht`/`wat` → `what`, `bcz`/`coz` → `because`, `idk` → `I don't know`, `wanna` → `want to`.
+- **Domain Typo Correction**: Corrects frequent student misspellings such as `eligibilty` → `eligibility`, `admision` → `admission`, `feees` → `fees`, `cources` → `courses`, `clg`/`colg` → `college`.
+- **Explicit vs. Ambiguous Percentage Understanding**:
+  - *Explicit percentages* (`65%`, `65 percent`, `65 persent`, `65 prcnt`, `65 marks out of 100`) trigger direct eligibility checks against official prospectus cutoff criteria.
+  - *Ambiguous numbers* (`I got 65 in 12th can I take BCA?`) are gated: the chatbot politely asks whether the student means percentage, percentile, or specific subject marks before evaluating admission chances.
+- **Safety & Protected Domain Entities**:
+  Faculty names (`Nisarg Vyas`, `Dr. Pravida Raja`, `Dr. Sebastian V.A.`, `Fr. David Roy`), course codes (`PAI-1803`, `CAI-2`), and negation words (`not`, `no`, `never`, `nathi`, `nahi`) are strictly protected from mutation.
+
 ## Multilingual Query Understanding (Optional Gemini Integration)
 
-The chatbot natively supports multilingual student queries in English, Hindi, Gujarati, and Hinglish (including informal spelling and colloquial abbreviations like *"mare bca ma admission levu che"* or *"12 sci can i take phy?"*):
+In addition to IndicTrans2:
 1. **Local Deterministic Normalizer First**: Fast-paths check canonical courses and structured intents (eligibility, fees, application link, process, documents) directly in < 50ms without consuming external API tokens.
 2. **Gemini Flash Fallback**: If a multilingual, misspelled, or ambiguous query is not resolved locally, it can route to Gemini to extract structured JSON `{language, intent, course, qualification, query}`.
 3. **Strict Zero-Hallucination Isolation**: Gemini is strictly constrained to query understanding and **never** answers college facts. College facts, fees, eligibility criteria, and application links are retrieved exclusively from PostgreSQL and the local RAG vector store.
@@ -750,21 +783,28 @@ AI-Admission-Chatbot/
 │   ├── db/               # PostgreSQL schema, connection pool, and repository
 │   ├── embeddings/       # BAAI/bge-small-en-v1.5 embedding generator
 │   ├── finetune/         # QLoRA fine-tuning scripts and datasets
-│   ├── llm/              # Local Qwen2.5-3B-Instruct & optional Gemini multilingual provider
+│   ├── llm/              # Local Qwen2.5-3B-Instruct & optional Gemini provider
 │   ├── preprocessing/    # PDF loader, HTML loader, table extraction, ligature repair, chunker
-│   ├── rag/              # Two-stage retriever, BM25, reranker, cache, eligibility, pipeline
-│   ├── utils/            # Document registry, crawl logging, helper functions
+│   ├── rag/              # Two-stage retriever, query normalizer, BM25, reranker, pipeline
+│   ├── translation/      # 22 Scheduled Indian Languages support (IndicTrans2 & detector)
+│   ├── utils/            # Document registry, crawl logging, admin reviews persistence
 │   └── vectorstore/      # Chroma vector database client and operations
 ├── data/
+│   ├── admin_reviews.json# Review queue status persistence for unanswered queries
 │   └── raw/              # Official college prospectus PDFs and crawled website HTML
 ├── frontend/
-│   ├── src/              # React components (ChatPage, Composer, AdminModal, SourcesPanel)
+│   ├── src/
+│   │   ├── admin/        # React Admin Portal (Dashboard, System Health, PDF Knowledge, Reviews)
+│   │   ├── components/   # ChatPage, Composer, MessageItem, SourcesPanel
+│   │   ├── App.jsx       # Root router & admin shortcut handler
+│   │   └── api.js        # API client with streaming and timeout resilience
 │   ├── index.html        # Main HTML shell
 │   ├── package.json      # Frontend dependencies (React 18, Vite 5)
 │   └── vite.config.js    # Vite configuration and API proxy
 ├── .env.example          # Sample environment variables template
 ├── .gitignore            # Git exclusion rules
 ├── requirements.txt      # Python dependencies
+├── run_server.py         # Dedicated server startup script
 └── README.md             # Project documentation
 ```
 
@@ -791,6 +831,11 @@ AI-Admission-Chatbot/
 | `RERANK_BATCH_SIZE` | `8` | Batch size for reranker GPU inference |
 | `RERANK_FLOOR` | `0.02` | Minimum noise floor for reranker scores |
 | `RERANK_RELATIVE_MARGIN` | `0.5` | Relative score margin against top candidate |
+| `INDIC_TRANSLATION_ENABLED` | `true` | Enable IndicTrans2 multilingual translation |
+| `INDIC_TRANSLATION_DEVICE` | `auto` | Device for translation model (`cuda`, `cpu`, `auto`)|
+| `INDIC_TRANSLATION_MAX_INPUT_LEN` | `512` | Max token length for Indic translation input |
+| `INDIC_TRANSLATION_MAX_OUTPUT_LEN` | `512` | Max token length for Indic translation output |
+| `INDIC_TRANSLATION_BEAM_SIZE` | `1` | Beam size for Indic generation (1 for fast greedy)|
 | `GEMINI_API_KEY` | - | (Optional) Google Gemini API key for multilingual intent fallback |
 | `GEMINI_MODEL` | `gemini-3.6-flash` | Gemini model variant for intent extraction |
 | `LIVE_CRAWL_FALLBACK_ENABLED` | `false` | Enable live crawl on retrieval misses |

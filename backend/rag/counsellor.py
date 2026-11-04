@@ -22,6 +22,8 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "education_level": None,  # "12th", "bachelor", "diploma", or None
     "stream": None,           # "Science", "Commerce", "Arts", or None
     "percentage": None,       # e.g., "65"
+    "is_ambiguous_score": False,
+    "ambiguous_score": None,
     "interest_area": None,    # "Computer/IT", "AI/ML", "Pure Science", "Life Sciences", "Commerce", "Arts", or None
     "career_goal": None,      # e.g., "AI Engineer", "Software Developer", or None
     "course_level": None,     # "UG", "PG", or None
@@ -639,50 +641,149 @@ FACULTY_ROSTER: list[dict[str, Any]] = [
         "roles": ["ai coordinator", "ai and ml coordinator", "coordinator of ai and ml"],
     },
     {
-        "id": "nisarg_patel",
-        "canonical_name": "Nisarg Patel",
-        "full_name": "Mr. Nisarg Patel",
-        "first_name": "Nisarg",
-        "last_name": "Patel",
-        "title": "Mr.",
-        "designation": "Faculty / Staff",
-        "department": "Department of Computer Science",
-        "email": "nisarg.patel@sxca.edu.in",
-        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
-        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
-        "aliases": ["nisarg patel", "mr nisarg patel"],
-        "roles": [],
-    },
-    {
-        "id": "nisarg_shah",
-        "canonical_name": "Nisarg Shah",
-        "full_name": "Mr. Nisarg Shah",
-        "first_name": "Nisarg",
-        "last_name": "Shah",
-        "title": "Mr.",
-        "designation": "Faculty / Staff",
-        "department": "Faculty of Sciences",
-        "email": "nisarg.shah@sxca.edu.in",
-        "source_doc": "academics-departments-science-faculty-science.html",
-        "source_url": "https://sxca.edu.in/academics/departments/science/faculty-science/",
-        "aliases": ["nisarg shah", "mr nisarg shah"],
-        "roles": [],
-    },
-    {
         "id": "nisarg_patil",
         "canonical_name": "Nisarg Patil",
         "full_name": "Mr. Nisarg Patil",
         "first_name": "Nisarg",
         "last_name": "Patil",
         "title": "Mr.",
-        "designation": "Assistant Professor",
-        "department": "Department of Biochemistry & Biotechnology",
-        "email": "nisarg.patil@sxca.edu.in",
+        "designation": "Faculty / Staff",
+        "department": "Faculty of Science (Department of Biochemistry & Biotechnology)",
+        "email": None,
         "source_doc": "academics-departments-science-faculty-science.html",
         "source_url": "https://sxca.edu.in/academics/departments/science/faculty-science/",
         "aliases": ["nisarg patil", "mr nisarg patil"],
         "roles": [],
     },
+    {
+        "id": "nancy_patel",
+        "canonical_name": "Nancy Patel",
+        "full_name": "Ms. Nancy Patel",
+        "first_name": "Nancy",
+        "last_name": "Patel",
+        "title": "Ms.",
+        "designation": "Assistant Professor",
+        "department": "Department of Computer Sciences & Data Science",
+        "email": None,
+        "programmes": "BCA, B.Sc. CS, B.Sc. IT, B.Sc. AI, M.Sc. AI, and M.Sc. BDA",
+        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
+        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
+        "aliases": ["nancy patel", "ms nancy patel", "nancy"],
+        "roles": [],
+    },
+    {
+        "id": "dhwanir_shah",
+        "canonical_name": "Dhwanir Shah",
+        "full_name": "Mr. Dhwanir Shah",
+        "first_name": "Dhwanir",
+        "last_name": "Shah",
+        "title": "Mr.",
+        "designation": "Assistant Professor",
+        "department": "Department of Computer Sciences & Data Science",
+        "email": None,
+        "programmes": "BCA, B.Sc. CS, B.Sc. IT, B.Sc. AI, M.Sc. AI, and M.Sc. BDA",
+        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
+        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
+        "aliases": ["dhwanir shah", "mr dhwanir shah", "dhwanir"],
+        "roles": [],
+    },
+    {
+        "id": "dhara_bhatt",
+        "canonical_name": "Dhara Bhatt",
+        "full_name": "Dr. Dhara Bhatt",
+        "first_name": "Dhara",
+        "last_name": "Bhatt",
+        "title": "Dr.",
+        "designation": "Assistant Professor",
+        "department": "Department of Computer Sciences & Data Science",
+        "email": None,
+        "programmes": "BCA, B.Sc. CS, B.Sc. IT, B.Sc. AI, M.Sc. AI, and M.Sc. BDA",
+        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
+        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
+        "aliases": ["dhara bhatt", "dr dhara bhatt", "dhara"],
+        "roles": [],
+    },
+    {
+        "id": "manali_brahmbhatt",
+        "canonical_name": "Manali Brahmbhatt",
+        "full_name": "Dr. Manali Brahmbhatt",
+        "first_name": "Manali",
+        "last_name": "Brahmbhatt",
+        "title": "Dr.",
+        "designation": "Assistant Professor",
+        "department": "Department of Computer Sciences & Data Science",
+        "email": None,
+        "programmes": "BCA, B.Sc. CS, B.Sc. IT, B.Sc. AI, M.Sc. AI, and M.Sc. BDA",
+        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
+        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
+        "aliases": ["manali brahmbhatt", "dr manali brahmbhatt", "manali"],
+        "roles": [],
+    },
+    {
+        "id": "khushboo_shah",
+        "canonical_name": "Khushboo Shah",
+        "full_name": "Dr. Khushboo Shah",
+        "first_name": "Khushboo",
+        "last_name": "Shah",
+        "title": "Dr.",
+        "designation": "Assistant Professor",
+        "department": "Department of Computer Sciences & Data Science",
+        "email": None,
+        "programmes": "BCA, B.Sc. CS, B.Sc. IT, B.Sc. AI, M.Sc. AI, and M.Sc. BDA",
+        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
+        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
+        "aliases": ["khushboo shah", "dr khushboo shah", "khushboo"],
+        "roles": [],
+    },
+    {
+        "id": "kanickai_mary",
+        "canonical_name": "Kanickai Mary",
+        "full_name": "Sr. Kanickai Mary",
+        "first_name": "Kanickai",
+        "last_name": "Mary",
+        "title": "Sr.",
+        "designation": "Assistant Professor",
+        "department": "Department of Computer Sciences & Data Science",
+        "email": None,
+        "programmes": "BCA, B.Sc. CS, B.Sc. IT, B.Sc. AI, M.Sc. AI, and M.Sc. BDA",
+        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
+        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
+        "aliases": ["kanickai mary", "sr kanickai mary", "kanickai"],
+        "roles": [],
+    },
+    {
+        "id": "chetan_verma",
+        "canonical_name": "Chetan Verma",
+        "full_name": "Mr. Chetan Verma",
+        "first_name": "Chetan",
+        "last_name": "Verma",
+        "title": "Mr.",
+        "designation": "Assistant Professor",
+        "department": "Department of Computer Sciences & Data Science",
+        "email": None,
+        "programmes": "BCA, B.Sc. CS, B.Sc. IT, B.Sc. AI, M.Sc. AI, and M.Sc. BDA",
+        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
+        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
+        "aliases": ["chetan verma", "mr chetan verma", "chetan"],
+        "roles": [],
+    },
+    {
+        "id": "ashwini_kshatriya",
+        "canonical_name": "Ashwini Kshatriya",
+        "full_name": "Ms. Ashwini Kshatriya",
+        "first_name": "Ashwini",
+        "last_name": "Kshatriya",
+        "title": "Ms.",
+        "designation": "Assistant Professor",
+        "department": "Department of Computer Sciences & Data Science",
+        "email": None,
+        "programmes": "BCA, B.Sc. CS, B.Sc. IT, B.Sc. AI, M.Sc. AI, and M.Sc. BDA",
+        "source_doc": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
+        "source_url": "https://sxca.edu.in/academics/departments/computer-sciences/faculty-computer-sciences-data-sciences/",
+        "aliases": ["ashwini kshatriya", "ms ashwini kshatriya", "ashwini"],
+        "roles": [],
+    },
+
     {
         "id": "david_roy",
         "canonical_name": "David K. Roy",
@@ -1063,7 +1164,24 @@ def resolve_faculty(question: str, profile: dict[str, Any] | None = None) -> dic
                 return {"status": "RESOLVED", "person": matching_curr[0]}
         return {"status": "AMBIGUOUS", "query": target_query.title(), "candidates": candidate_matches}
     else:
+        # Rules 3 & 4: Do not treat similar names as exact matches.
+        # Check if any token matches an existing faculty member's first/last name (e.g. user asks "Nisarg Patel" -> Nisarg Vyas, Nancy Patel)
+        if len(target_tokens) >= 2:
+            similar_candidates: list[dict[str, Any]] = []
+            for person in FACULTY_ROSTER:
+                p_first = person["first_name"].lower()
+                p_last = person["last_name"].lower()
+                if any(tok == p_first or tok == p_last for tok in target_tokens):
+                    if person not in similar_candidates:
+                        similar_candidates.append(person)
+            if similar_candidates:
+                return {
+                    "status": "SIMILAR_NAME_CLARIFICATION",
+                    "query": target_query.title(),
+                    "candidates": similar_candidates,
+                }
         return {"status": "NOT_FOUND", "query": target_query.title(), "candidates": []}
+
 
 
 def should_inherit_course_context(question: str, profile: dict | None = None, recent_turns: list | None = None) -> bool:
@@ -1407,9 +1525,15 @@ def extract_and_update_profile(
         profile["stream"] = "Arts"
 
     # 4. Percentage extraction
-    pct_m = re.search(r"\b(\d{1,2}(?:\.\d+)?)\s*(?:%|percent\b)", q_low)
-    if pct_m:
-        profile["percentage"] = pct_m.group(1)
+    from backend.rag import query_normalizer
+    score_data = query_normalizer.extract_percentage_and_score(q_low)
+    if score_data["percentage"] is not None:
+        profile["percentage"] = f"{score_data['percentage']:g}"
+        profile["is_ambiguous_score"] = False
+        profile["ambiguous_score"] = None
+    elif score_data["is_ambiguous"]:
+        profile["is_ambiguous_score"] = True
+        profile["ambiguous_score"] = score_data["ambiguous_score"]
 
     # 5. Interest Area extraction
     if re.search(r"\b(ai|artificial\s*intelligence|machine\s*learning|ml|ai/ml)\b", q_low) and not matched_course:
@@ -1485,7 +1609,9 @@ def handle_ai_ambiguity() -> str:
 
 def classify_intent(question: str, profile: dict[str, Any], recent_turns: list[dict] | None = None) -> str:
     """Classifies user's intent within the counsellor context using human-like NLU."""
-    q_low = question.lower().strip()
+    from backend.rag import query_normalizer
+    norm_q, _ = query_normalizer.normalize_query_text(question)
+    q_low = norm_q.lower().strip()
 
     # 0. Conversation Feedback & Repair (Top Priority - e.g. "why you keep giving same answer")
     if is_conversation_feedback(question):
@@ -1607,14 +1733,28 @@ def classify_intent(question: str, profile: dict[str, Any], recent_turns: list[d
     if re.search(r"\b(mane\s*gujarati\s*ma\s*(?:j\s*)?(?:answer|jawab|bolo)|gujarati\s*ma\s*(?:j\s*)?(?:answer|jawab|bolo)|mne\s*guj\s*ma|guj\s*ma\s*jawab|answer\s*in\s*english|english\s*ma\s*bolo|reply\s*in\s*english)\b", q_low):
         return "LANGUAGE_PREFERENCE"
 
-    # 6. Bare Greetings
-    if re.search(
-        r"^(?:hi+|hello+|hey+|heya|heyy|greetings|good\s*(?:morning|afternoon|evening)|halo|"
-        r"namaste|namste|namaskar|kem\s*cho|kemcho|pranam|vanakkam|satsriakal)\b",
-        q_low,
-    ) or q_low in ("namaste", "namste", "namaskar", "kemcho", "kem cho", "pranam", "vanakkam", "satsriakal"):
-        if len(q_low.split()) <= 3 and not any(w in q_low for w in ["bca", "bcom", "bsc", "msc", "admission", "fee", "eligibility", "lab"]):
+    # 6. Bare Greetings & Smalltalk
+    is_greeting_match = (
+        bool(re.search(
+            r"^(?:hi+|hello+|hey+|heya|heyy|greetings|good\s*(?:morning|afternoon|evening)|halo|"
+            r"namaste|namste|namaskar|kem\s*cho|kemcho|majama\s*ne|maza\s*ma\s*ne|pranam|vanakkam|satsriakal)\b",
+            q_low,
+        ))
+        or q_low in ("namaste", "namste", "namaskar", "kemcho", "kem cho", "majama ne", "maza ma ne", "pranam", "vanakkam", "satsriakal", "hello", "hi", "hey")
+        or bool(re.search(r"\b(how\s*are\s*you|how\s*r\s*u|kya\s*haal|kaise\s*ho|kaisi\s*ho)\b", q_low))
+    )
+    if is_greeting_match:
+        if len(q_low.split()) <= 4 and not any(w in q_low for w in ["bca", "bcom", "bsc", "msc", "admission", "fee", "eligibility", "lab", "course", "courses"]):
             return "GREETING"
+
+    # 6b. Bot Identity (Niaa)
+    if re.search(
+        r"\b(who\s*are\s*you|who\s*r\s*u|what\s*is\s*your\s*name|what\s*do\s*you\s*do|introduce\s*yourself|"
+        r"tame\s*kon\s*cho|tamaru\s*naam\s*su\s*che|tame\s*su\s*karo\s*cho|"
+        r"aap\s*kaun\s*ho|tum\s*kaun\s*ho|aapka\s*naam\s*kya\s*hai|apna\s*naam\s*batao|kya\s*naam\s*hai)\b",
+        q_low,
+    ) or q_low in ("who are you", "who are you?", "what is your name", "what is your name?", "tame kon cho", "tame kon cho?", "aap kaun ho", "aap kaun ho?"):
+        return "IDENTITY"
 
     # 7. Campus Facility Complaint
     if re.search(r"\b(not\s*working|broken|damaged|faulty|issue\s*in|problem\s*in|complaint|repair)\b", q_low):
@@ -1627,9 +1767,14 @@ def classify_intent(question: str, profile: dict[str, Any], recent_turns: list[d
             return "CHITCHAT"
 
     # 9. Faculty / Leadership / Staff / Department follow-up (High Priority - Independent of Course)
+    f_res = resolve_faculty(question, profile)
+    has_roster_match = f_res["status"] in ("RESOLVED", "AMBIGUOUS", "SIMILAR_NAME_CLARIFICATION")
+
     if (
-        re.search(
-            r"\b(who\s*is\s*david|who\s*is\s*dr\s*david|dr\.?\s*david|david\s*roy|david\s*kon|fr\.?\s*david|fr\s*david|"
+        has_roster_match
+        or re.search(
+            r"\b(who\s*is\s+[A-Za-z]+|who\s*was\s+[A-Za-z]+|tell\s*me\s*about\s+[A-Za-z]+|"
+            r"who\s*is\s*david|who\s*is\s*dr\s*david|dr\.?\s*david|david\s*roy|david\s*kon|fr\.?\s*david|fr\s*david|"
             r"who\s*is\s*(?:the\s*)?principal|principal\s*name|principal\s*kon|dr\.?\s*sebastian|sebastian|"
             r"who\s*is\s*(?:the\s*)?director|director\s*name|director\s*kon|"
             r"who\s*is\s*(?:the\s*)?rector|rector\s*name|rector\s*kon|fr\.?\s*antony|pitchai|"
@@ -1718,16 +1863,21 @@ def classify_intent(question: str, profile: dict[str, Any], recent_turns: list[d
     if re.search(r"\b(ug\s*courses?|undergraduate\s*courses?|list\s+of\s+ug\s+courses?|all\s+ug\s+courses?)\b", q_low):
         return "ALL_UG_COURSES"
 
-    # 25. Broad Course Discovery ("What courses do you have?", "courses", "programs", "other courses", "alternatives")
+    # 25. Broad Course Discovery ("What courses are available?", "Which programs can I study?", "SXCA ma kaya course che?", "Tell me the courses offered.")
     if re.search(
         r"^(?:courses?\??|cources?\??|all\s*courses?\??|available\s*courses?\??|programmes?\??|programs?\??)$|"
-        r"\b(what\s*(?:are\s*the\s*)?(?:courses?|cources?)\s*(?:are\s*)?available|"
-        r"what\s*(?:courses?|cources?)\s*(?:do\s*you\s*have|are\s*available|there\s*are)|"
-        r"which\s*(?:courses?|cources?)\s*(?:do\s*you\s*have|are\s*there|are\s*available)|"
+        r"\b(what\s*(?:are\s*the\s*)?(?:courses?|cources?|programs?|programmes?)\s*(?:are\s*)?available|"
+        r"what\s*(?:courses?|cources?|programs?)\s*(?:do\s*you\s*have|are\s*available|there\s*are)|"
+        r"which\s*(?:courses?|cources?|programs?|programmes?)\s*(?:do\s*you\s*have|are\s*there|are\s*available|can\s*i\s*(?:study|take|apply|opt|do))|"
+        r"(?:tell\s*me\s*(?:the\s*)?)?(?:courses?|cources?|programs?|programmes?)\s*(?:offered|available)|"
         r"(?:courses?|cources?)\s*(?:are\s*)?available|"
-        r"list\s+of\s+(?:courses?|cources?)|available\s+(?:courses?|cources?)|(?:courses?|cources?)\s*list|"
+        r"list\s+of\s+(?:courses?|cources?|programs?)|available\s+(?:courses?|cources?|programs?)|(?:courses?|cources?)\s*list|"
         r"other\s*(?:courses?|cources?)|different\s*(?:courses?|cources?)|alternatives?|"
-        r"other\s*programs?|different\s*programs?|any\s*other\s*option)\b",
+        r"other\s*programs?|different\s*programs?|any\s*other\s*option|"
+        r"kaya\s*courses?\s*che|su\s*courses?\s*che|su\s*course\s*che|kya\s*courses?\s*che|kai\s*courses?\s*che|"
+        r"kon\s*se\s*courses?\s*hai|kaunse\s*courses?\s*hai|konsa\s*course\s*hai|kaunsa\s*course\s*hai|"
+        r"courses?\s*(?:in|at)\s*(?:the\s*)?(?:college|clg|sxca|st\s*xavier))\b|"
+        r"કયા\s*કોર્સ\S*|કયા\s*અભ્યાસક્રમ\S*|કોર્સ\s*કયા\S*|कौनसे\s*कोर्स\S*|कौन\s*से\s*कोर्स\S*",
         q_low
     ):
         return "COURSE_DISCOVERY"
@@ -1813,7 +1963,10 @@ def classify_intent(question: str, profile: dict[str, Any], recent_turns: list[d
     is_explicit_counselling_request = bool(re.search(
         r"\b(help\s*me\s*choose|don'?t\s*know\s*what\s*to\s*choose|confused|what\s*can\s*i\s*do|"
         r"which\s*course\s*should\s*i|suggest\s*(?:me\s*)?a\s*course|recommend\s*(?:me\s*)?a\s*course|"
-        r"guide\s*me|what\s*should\s*i\s*(?:do|take|choose))\b",
+        r"guide\s*me|what\s*should\s*i\s*(?:do|take|choose)|"
+        r"which\s*(?:course|one)?\s*(?:is\s*)?best|what\s*is\s*best|best\s*for\s*me|"
+        r"i\s*don'?t\s*know\s*which\s*course|idk\s*which\s*course|u\s*tell\s*me\s*which|you\s*tell\s*me\s*which|"
+        r"wanna\s*study|want\s*to\s*study)\b",
         q_low,
     ))
     is_counselling_reply = bool(
@@ -1848,12 +2001,81 @@ def handle_complaint(question: str) -> str:
     )
 
 
-def handle_greeting(question: str) -> str:
-    """Friendly, conversational counsellor greeting introducing Niaa."""
-    return (
-        "Hi! 👋 Welcome to St. Xavier's College, Ahmedabad.\n"
-        "I'm **Niaa**, your admission counsellor. How can I help you today?"
-    )
+def handle_greeting(question: str, profile: dict[str, Any] | None = None) -> str:
+    """Friendly, conversational counsellor greeting introducing Niaa in the user's language."""
+    lang = detect_language(question, profile)
+    q_low = question.lower()
+    is_how_are_you = bool(re.search(r"\b(majama\s*ne|maza\s*ma\s*ne|kem\s*cho|how\s*are\s*you|how\s*r\s*u|kya\s*haal|kaise\s*ho)\b", q_low))
+
+    if lang == "gujarati":
+        if is_how_are_you:
+            return (
+                "નમસ્તે! હું એકદમ મજામાં છું. 😊 સેન્ટ ઝેવિયર્સ કોલેજ (સ્વાયત્ત), અમદાવાદમાં તમારું સ્વાગત છે!\n\n"
+                "હું **નિઆ (Niaa)** છું, તમારી એડમિશન આસિસ્ટન્ટ. આજે હું તમને કેવી રીતે મદદ કરી શકું?"
+            )
+        return (
+            "નમસ્તે! 👋 સેન્ટ ઝેવિયર્સ કોલેજ (સ્વાયત્ત), અમદાવાદમાં તમારું સ્વાગત છે.\n\n"
+            "હું **નિઆ (Niaa)** છું, તમારી એડમિશન આસિસ્ટન્ટ. હું તમને પ્રવેશ, કોર્સ, પાત્રતા કે ફી વિશે કેવી રીતે મદદ કરી શકું?"
+        )
+    elif lang == "hindi":
+        if is_how_are_you:
+            return (
+                "नमस्ते! मैं बहुत अच्छी हूँ, पूछने के लिए धन्यवाद। 😊 सेंट जेवियर्स कॉलेज (स्वायत्त), अहमदाबाद में आपका स्वागत है!\n\n"
+                "मैं **निઆ (Niaa)** हूँ, आपकी एडमिशन असिस्टेंट। आज मैं आपकी क्या सहायता कर सकती हूँ?"
+            )
+        return (
+            "नमस्ते! 🙏 सेंट जेवियर्स कॉलेज (स्वायत्त), अहमदाबाद में आपका स्वागत है।\n\n"
+            "मैं **निઆ (Niaa)** हूँ, आपकी एडमिशन असिस्टेंट। मैं प्रवेश, पाठ्यक्रम, पात्रता या फीस के बारे में आपकी क्या सहायता करूँ?"
+        )
+    else:
+        if is_how_are_you:
+            return (
+                "Hello! I'm doing well, thank you for asking! 😊 Welcome to St. Xavier's College (Autonomous), Ahmedabad.\n\n"
+                "I'm **Niaa**, your admission assistant. How can I help you today?"
+            )
+        return (
+            "Hi! 👋 Welcome to St. Xavier's College, Ahmedabad.\n\n"
+            "I'm **Niaa**, your admission assistant. How can I help you today?"
+        )
+
+
+def handle_identity(question: str, profile: dict[str, Any] | None = None) -> str:
+    """Friendly identity explanation describing Niaa's role in the user's language."""
+    lang = detect_language(question, profile)
+    if lang == "gujarati":
+        return (
+            "હું **નિઆ (Niaa)** છું — સેન્ટ ઝેવિયર્સ કોલેજ (સ્વાયત્ત), અમદાવાદની સત્તાવાર AI એડમિશન આસિસ્ટન્ટ. 😊\n\n"
+            "હું તમને નીચેની બાબતોમાં મદદ કરી શકું છું:\n"
+            "• **અભ્યાસક્રમો:** BCA, B.Sc. (Physics, Chemistry, Maths, IT, AI & ML, Biotechnology), B.Com., B.A., BBA, M.Sc.\n"
+            "• **પાત્રતા માપદંડ (Eligibility)** અને ટકાવારી જરૂરિયાતો\n"
+            "• **ફી માળખું (Fee Structure)**\n"
+            "• **ઓનલાઇન પ્રવેશ પ્રક્રિયા અને મેરિટ લિસ્ટ**\n"
+            "• **ફેકલ્ટી અને કેમ્પસ સુવિધાઓ (હોસ્ટેલ, સ્પોર્ટ્સ, લાઈબ્રેરી)**\n\n"
+            "તમે કઈ માહિતી જાણવા માંગો છો?"
+        )
+    elif lang == "hindi":
+        return (
+            "मैं **निઆ (Niaa)** हूँ — सेंट जेवियर्स कॉलेज (स्वायत्त), अहमदाबाद की आधिकारिक AI एडमिशन असिस्टेंट। 😊\n\n"
+            "मैं कॉलेज से जुड़ी प्रामाणिक जानकारी प्रदान कर सकती हूँ:\n"
+            "• **पाठ्यक्रम:** BCA, B.Sc. (Physics, Chemistry, Maths, IT, AI & ML, Biotechnology), B.Com., B.A., BBA, M.Sc. आदि\n"
+            "• **पात्रता मापदंड (Eligibility)** और नियम\n"
+            "• **सेमेस्टर फीस (Fee Structure)**\n"
+            "• **प्रवेश प्रक्रिया और ऑनलाइन आवेदन लिंक**\n"
+            "• **फैकल्टी, हॉस्टल और कैंपस सुविधाएं**\n\n"
+            "आज मैं आपकी क्या सहायता कर सकती हूँ?"
+        )
+    else:
+        return (
+            "I am **Niaa**, the official AI Admission Assistant for St. Xavier's College (Autonomous), Ahmedabad. 😊\n\n"
+            "I can assist you with verified official information on:\n"
+            "• **Academic Programmes:** BCA, B.Sc. (Physics, Chemistry, Maths, IT, AI & ML, Biotechnology), B.Com., B.A., BBA, and M.Sc.\n"
+            "• **Eligibility Criteria & Selection Process**\n"
+            "• **Fee Structure & Scholarships**\n"
+            "• **How to Apply & Admission Deadlines**\n"
+            "• **Faculty Profiles & Campus Facilities (Hostels, Sports, Library)**\n\n"
+            "How can I help you today?"
+        )
+
 
 
 def handle_course_inquiry(course_name: str, profile: dict[str, Any]) -> str:
@@ -1875,6 +2097,7 @@ def handle_course_inquiry(course_name: str, profile: dict[str, Any]) -> str:
 
 def handle_counselling_step(question: str, profile: dict[str, Any]) -> str:
     """Progressive, empathetic guidance asking ONE useful question at a time."""
+    lang = detect_language(question, profile)
     education = profile.get("education_level")
     stream = profile.get("stream")
     interest = profile.get("interest_area")
@@ -1882,12 +2105,32 @@ def handle_counselling_step(question: str, profile: dict[str, Any]) -> str:
 
     # Step 1: Missing qualification/stream
     if not stream and not education:
+        if lang == "gujarati":
+            return (
+                "બિલકુલ ચિંતા કરશો નહીં, હું તમને યોગ્ય વિકલ્પ પસંદ કરવામાં મદદ કરીશ.\n\n"
+                "તમે 12મા ધોરણમાં કયો પ્રવાહ (Stream) પાસ કર્યો છે — સાયન્સ (Science), કોમર્સ (Commerce), કે આર્ટ્સ (Arts)? (અથવા શું તમે ગ્રેજ્યુએશન પૂર્ણ કરેલ છે?)"
+            )
+        elif lang == "hindi":
+            return (
+                "बिल्कुल चिंता न करें, मैं सही विकल्प चुनने में आपकी मदद करूंगी।\n\n"
+                "आपने 12वीं में कौन सा स्ट्रीम पूरा किया है — साइंस (Science), कॉमर्स (Commerce), या आर्ट्स (Arts)? (या आपने ग्रेजुएशन पूरा कर लिया है?)"
+            )
         return (
             "That's completely fine. I can help you narrow it down.\n\n"
             "Which stream did you complete in 12th — Science, Commerce, or Arts? (Or have you completed a bachelor's degree or another qualification?)"
         )
 
     if education == "12th" and not stream:
+        if lang == "gujarati":
+            return (
+                "બિલકુલ ચિંતા કરશો નહીં, હું તમને યોગ્ય વિકલ્પ પસંદ કરવામાં મદદ કરીશ.\n\n"
+                "તમે 12મા ધોરણમાં કયો પ્રવાહ (Stream) પાસ કર્યો છે — સાયન્સ (Science), કોમર્સ (Commerce), કે આર્ટ્સ (Arts)?"
+            )
+        elif lang == "hindi":
+            return (
+                "बिल्कुल चिंता न करें, मैं सही विकल्प चुनने में आपकी मदद करूंगी।\n\n"
+                "आपने 12वीं में कौन सा स्ट्रीम पूरा किया है — साइंस (Science), कॉमर्स (Commerce), या आर्ट्स (Arts)?"
+            )
         return (
             "That's completely fine. I can help you narrow it down.\n\n"
             "Which stream did you complete in 12th — Science, Commerce, or Arts?"
@@ -1895,6 +2138,22 @@ def handle_counselling_step(question: str, profile: dict[str, Any]) -> str:
 
     # Step 2: Stream known, interest unknown
     if stream == "Science" and not interest and not career_goal:
+        if lang == "gujarati":
+            return (
+                "સરસ! 12th સાયન્સ બેકગ્રાઉન્ડ સાથે, તમે કયા ક્ષેત્રમાં આગળ વધવા માંગો છો?\n\n"
+                "• **કમ્પ્યુટર / IT & સોફ્ટવેર (Computer / IT & Software)**\n"
+                "• **પ્યોર સાયન્સ (Pure Sciences)** (Physics, Chemistry, Maths, Statistics, Electronics)\n"
+                "• **લાઈફ સાયન્સ (Life Sciences)** (Biotechnology, Biochemistry, Botany, Zoology)\n"
+                "• **બિઝનેસ / મેનેજમેન્ટ (Business / Management)**"
+            )
+        elif lang == "hindi":
+            return (
+                "बहुत बढ़िया! 12वीं साइंस पृष्ठभूमि के साथ, आप किस क्षेत्र में रुचि रखते हैं?\n\n"
+                "• **कंप्यूटर / IT और सॉफ्टवेयर (Computer / IT & Software)**\n"
+                "• **प्योर साइंस (Pure Sciences)** (Physics, Chemistry, Maths, Statistics, Electronics)\n"
+                "• **लाइफ साइंस (Life Sciences)** (Biotechnology, Biochemistry, Botany, Zoology)\n"
+                "• **बिजनेस / मैनेजमेंट (Business / Management)**"
+            )
         return (
             "Great! With a 12th Science background, what area are you more interested in exploring?\n\n"
             "• **Computer / IT & Software**\n"
@@ -1904,6 +2163,24 @@ def handle_counselling_step(question: str, profile: dict[str, Any]) -> str:
         )
 
     if stream == "Commerce" and (not interest or interest == "Commerce/Business") and not career_goal:
+        if lang == "gujarati":
+            return (
+                "સરસ! કોમર્સ બેકગ્રાઉન્ડ સાથે, સેન્ટ ઝેવિયર્સ કોલેજમાં નીચેના મુખ્ય અંડરગ્રેજ્યુએટ અભ્યાસક્રમો ઉપલબ્ધ છે:\n\n"
+                "• **એકાઉન્ટિંગ & ફાઇનાન્સ:** B.Com. (General) (Grant-in-Aid), B.Com. BPS (Self-Financed)\n"
+                "• **બિઝનેસ મેનેજમેન્ટ:** B.S. Business Administration\n"
+                "• **કમ્પ્યુટર & સોફ્ટવેર:** BCA, B.Sc. IT\n"
+                "• **અર્થશાસ્ત્ર:** B.A. Economics\n\n"
+                "તમને કયા ક્ષેત્રમાં વધુ રસ છે?"
+            )
+        elif lang == "hindi":
+            return (
+                "बहुत बढ़िया! कॉमर्स पृष्ठभूमि के साथ, सेंट जेवियर्स कॉलेज में ये प्रमुख स्नातक कार्यक्रम उपलब्ध हैं:\n\n"
+                "• **अकाउंटिंग और फाइनेंस:** B.Com. (General) (Grant-in-Aid), B.Com. BPS (Self-Financed)\n"
+                "• **बिजनेस मैनेजमेंट:** B.S. Business Administration\n"
+                "• **कंप्यूटर और सॉफ्टवेयर:** BCA, B.Sc. IT\n"
+                "• **अर्थशास्त्र:** B.A. Economics\n\n"
+                "आपकी रुचि किस क्षेत्र में अधिक है?"
+            )
         return (
             "Great! With a Commerce background, St. Xavier's College offers prominent undergraduate programs:\n\n"
             "• **Accounting, Finance & Commerce:** B.Com. (General) (Grant-in-Aid), B.Com. BPS (Self-Financed)\n"
@@ -1914,6 +2191,22 @@ def handle_counselling_step(question: str, profile: dict[str, Any]) -> str:
         )
 
     if stream == "Arts" and (not interest or interest == "Arts") and not career_goal:
+        if lang == "gujarati":
+            return (
+                "સરસ! આર્ટ્સ બેકગ્રાઉન્ડ સાથે, સેન્ટ ઝેવિયર્સ કોલેજમાં નીચેના મુખ્ય અંડરગ્રેજ્યુએટ કાર્યક્રમો ઉપલબ્ધ છે:\n\n"
+                "• **B.A. કાર્યક્રમો:** English, Psychology, Economics, Sociology, Gujarati, Sanskrit\n"
+                "• **B.P.A. (પરફોર્મિંગ આર્ટ્સ):** Theatre & Production Management\n"
+                "• **BCA / B.S. Business Administration:** કોઈપણ પ્રવાહના 12મું પાસ વિદ્યાર્થીઓ માટે ઉપલબ્ધ\n\n"
+                "તમે કયો વિષય અથવા ક્ષેત્ર પસંદ કરવા માંગો છો?"
+            )
+        elif lang == "hindi":
+            return (
+                "बहुत बढ़िया! आर्ट्स पृष्ठभूमि के साथ, सेंट जेवियर्स कॉलेज में निम्नलिखित स्नातक कार्यक्रम उपलब्ध हैं:\n\n"
+                "• **B.A. प्रोग्राम्स:** English, Psychology, Economics, Sociology, Gujarati, Sanskrit\n"
+                "• **B.P.A. (परफॉर्मिंग आर्ट्स):** Theatre & Production Management\n"
+                "• **BCA / B.S. Business Administration:** किसी भी स्ट्रीम से 12वीं पास छात्रों के लिए खुला है\n\n"
+                "आप किस विषय या क्षेत्र में रुचि रखते हैं?"
+            )
         return (
             "Great! With an Arts background, St. Xavier's College offers prominent undergraduate programs:\n\n"
             "• **B.A. Programmes:** English, Psychology, Economics, Sociology, Gujarati, Sanskrit\n"
@@ -1924,6 +2217,22 @@ def handle_counselling_step(question: str, profile: dict[str, Any]) -> str:
 
     # Step 3: Interest is Computer/IT
     if interest == "Computer/IT" and not career_goal:
+        if lang == "gujarati":
+            return (
+                "12th સાયન્સ પછી કમ્પ્યુટર/IT માં રસ હોવાથી, સેન્ટ ઝેવિયર્સ કોલેજમાં નીચેના શ્રેષ્ઠ વિકલ્પો છે:\n\n"
+                "• **BCA (Bachelor of Computer Applications)** — સોફ્ટવેર ડેવલપમેન્ટ, એપ્લિકેશન્સ અને પ્રોગ્રામિંગ પર કેન્દ્રિત છે\n"
+                "• **B.Sc. Information Technology** — IT ઇન્ફ્રાસ્ટ્રક્ચર, સિસ્ટમ્સ અને કમ્પ્યુટેશન પર કેન્દ્રિત છે\n"
+                "• **B.Sc. Artificial Intelligence & Machine Learning** — AI અલ્ગોરિધમ્સ, ડેટા ઇન્ટેલિજન્સ અને ML પર કેન્દ્રિત છે\n\n"
+                "તમને મુખ્યત્વે સોફ્ટવેર ડેવલપમેન્ટ, AI/ML કે સામાન્ય IT માં વધુ રસ છે?"
+            )
+        elif lang == "hindi":
+            return (
+                "12वीं साइंस के बाद कंप्यूटर/IT में रुचि होने के कारण, सेंट जेवियर्स कॉलेज में ये बेहतरीन विकल्प हैं:\n\n"
+                "• **BCA (Bachelor of Computer Applications)** — सॉफ्टवेयर डेवलपमेंट और प्रोग्रामिंग पर केंद्रित\n"
+                "• **B.Sc. Information Technology** — IT इंफ्रास्ट्रक्चर और कंप्यूटिंग सिस्टम्स पर केंद्रित\n"
+                "• **B.Sc. Artificial Intelligence & Machine Learning** — AI एल्गोरिदम और डेटा इंटेलिजेंस पर केंद्रित\n\n"
+                "क्या आपकी रुचि मुख्य रूप से सॉफ्टवेयर डेवलपमेंट, AI/ML या सामान्य IT में है?"
+            )
         return (
             "Since you're interested in Computer/IT with a 12th Science background, St. Xavier's College offers excellent undergraduate options:\n\n"
             "• **BCA (Bachelor of Computer Applications)** — focuses on software development, applications, and programming\n"
@@ -1934,6 +2243,18 @@ def handle_counselling_step(question: str, profile: dict[str, Any]) -> str:
 
     # Step 4: Career Goal or Interest is AI / Machine Learning
     if career_goal == "AI Engineer" or interest == "AI/ML":
+        if lang == "gujarati":
+            return (
+                "સમજાયું! જો તમારો ધ્યેય AI અને મશીન લર્નિંગ છે, તો સેન્ટ ઝેવિયર્સ કોલેજનો **B.Sc. Artificial Intelligence & Machine Learning** "
+                "અભ્યાસક્રમ ખાસ AI, Machine Learning, Python અને ડેટા ઇન્ટેલિજન્સ માટે રચાયેલ છે. **BCA** પણ મજબૂત પ્રોગ્રામિંગ પાયો પૂરો પાડે છે.\n\n"
+                "શું તમે B.Sc. AI & ML અથવા BCA માટે પાત્રતા (eligibility), ફી સ્ટ્રક્ચર કે પ્રવેશ પ્રક્રિયા જાણવા માંગો છો?"
+            )
+        elif lang == "hindi":
+            return (
+                "समझ गया! यदि आपका लक्ष्य AI और मशीन लर्निंग है, तो सेंट जेवियर्स कॉलेज का **B.Sc. Artificial Intelligence & Machine Learning** "
+                "विशेष रूप से AI, Machine Learning, Python और डेटा इंटेलिजेंस के लिए तैयार किया गया है। **BCA** भी मजबूत प्रोग्रामिंग आधार प्रदान करता है।\n\n"
+                "क्या आप B.Sc. AI & ML या BCA की पात्रता, फीस या प्रवेश प्रक्रिया के बारे में जानना चाहते हैं?"
+            )
         return (
             "Got it. If your goal is AI and machine learning, **B.Sc. Artificial Intelligence & Machine Learning** "
             "at St. Xavier's College is specifically designed with dedicated coursework in AI, Machine Learning, Python, "
@@ -1973,13 +2294,33 @@ def handle_counselling_step(question: str, profile: dict[str, Any]) -> str:
     )
 
 
-def handle_course_discovery(question: str, profile: dict[str, Any]) -> str:
-    """Answers 'What courses do you have?' contextually without dumping unrelated courses."""
-    education = profile.get("education_level")
-    stream = profile.get("stream")
+def handle_course_discovery(question: str, profile: dict[str, Any] | None = None) -> str:
+    """Answers 'What courses do you have?' contextually without dumping unrelated courses, localized to user's language."""
+    prof = profile or {}
+    lang = detect_language(question, prof)
+    education = prof.get("education_level")
+    stream = prof.get("stream")
 
     # If stream is 12th Science
     if stream == "Science" or (education == "12th" and stream == "Science"):
+        if lang == "gujarati":
+            return (
+                "12th સાયન્સ પછી, સેન્ટ ઝેવિયર્સ કોલેજમાં નીચેના અંડરગ્રેજ્યુએટ (UG) અભ્યાસક્રમો ઉપલબ્ધ છે:\n\n"
+                "• **કોમ્પ્યુટર & IT:** BCA, B.Sc. Information Technology, B.Sc. AI & ML\n"
+                "• **પ્યોર સાયન્સ:** B.Sc. Physics, B.Sc. Chemistry, B.Sc. Mathematics, B.Sc. Statistics, B.Sc. Electronics\n"
+                "• **લાઈફ સાયન્સ:** B.Sc. Biotechnology, B.Sc. Biochemistry, B.Sc. Botany, B.Sc. Zoology\n"
+                "• **મેનેજમેન્ટ:** B.S. Business Administration\n\n"
+                "તમને કયા ક્ષેત્રમાં વધુ રસ છે?"
+            )
+        elif lang == "hindi":
+            return (
+                "12वीं साइंस के बाद, सेंट जेवियर्स कॉलेज में निम्नलिखित अंडरग्रेजुएट (UG) पाठ्यक्रम उपलब्ध हैं:\n\n"
+                "• **कंप्यूटर & IT:** BCA, B.Sc. Information Technology, B.Sc. AI & ML\n"
+                "• **प्योर साइंस:** B.Sc. Physics, B.Sc. Chemistry, B.Sc. Mathematics, B.Sc. Statistics, B.Sc. Electronics\n"
+                "• **लाइफ साइंस:** B.Sc. Biotechnology, B.Sc. Biochemistry, B.Sc. Botany, B.Sc. Zoology\n"
+                "• **प्रबंधन:** B.S. Business Administration\n\n"
+                "आप किस क्षेत्र में रुचि रखते हैं?"
+            )
         return (
             "Since you've completed 12th Science, here are the undergraduate (UG) options available for your background at St. Xavier's College:\n\n"
             "• **Computer & Technology:** BCA, B.Sc. Information Technology, B.Sc. Artificial Intelligence & Machine Learning\n"
@@ -1990,6 +2331,26 @@ def handle_course_discovery(question: str, profile: dict[str, Any]) -> str:
         )
 
     if stream == "Commerce":
+        if lang == "gujarati":
+            return (
+                "12th કોમર્સ પછી, તમે નીચેના અંડરગ્રેજ્યુએટ અભ્યાસક્રમોમાં પ્રવેશ મેળવી શકો છો:\n\n"
+                "• **B.Com. (General)** & **B.Com. (BPS)**\n"
+                "• **B.S. Business Administration (BBA)**\n"
+                "• **BCA (Bachelor of Computer Applications)**\n"
+                "• **B.Sc. Information Technology**\n"
+                "• **B.A. Economics**\n\n"
+                "શું તમે આમાંથી કોઈ કોર્સની ફી કે પાત્રતા વિશે જાણવા માંગો છો?"
+            )
+        elif lang == "hindi":
+            return (
+                "12वीं कॉमर्स के बाद, आप सेंट जेवियर्स कॉलेज में इन कोर्सेज के लिए आवेदन कर सकते हैं:\n\n"
+                "• **B.Com. (General)** & **B.Com. (BPS)**\n"
+                "• **B.S. Business Administration (BBA)**\n"
+                "• **BCA (Bachelor of Computer Applications)**\n"
+                "• **B.Sc. Information Technology**\n"
+                "• **B.A. Economics**\n\n"
+                "क्या आप इनमें से किसी कोर्स की फीस या पात्रता जानना चाहते हैं?"
+            )
         return (
             "With a 12th Commerce background, you can apply for the following undergraduate courses:\n\n"
             "• **B.Com. (General)** & **B.Com. (BPS)**\n"
@@ -2001,6 +2362,22 @@ def handle_course_discovery(question: str, profile: dict[str, Any]) -> str:
         )
 
     if stream == "Arts":
+        if lang == "gujarati":
+            return (
+                "12th આર્ટ્સ પછી, તમે નીચેના અંડરગ્રેજ્યુએટ અભ્યાસક્રમોમાં અરજી કરી શકો છો:\n\n"
+                "• **B.A. Programmes:** Economics, English, Psychology, Sociology, Gujarati, Sanskrit\n"
+                "• **B.P.A.:** Theatre & Production Management\n"
+                "• **BCA / B.S. Business Administration:** તમામ પ્રવાહના વિદ્યાર્થીઓ માટે ખુલ્લું છે\n\n"
+                "તમે કયા વિષય વિશે વધુ જાણવા માંગો છો?"
+            )
+        elif lang == "hindi":
+            return (
+                "12वीं आर्ट्स के बाद, आप इन कोर्सेज के लिए आवेदन कर सकते हैं:\n\n"
+                "• **B.A. Programmes:** Economics, English, Psychology, Sociology, Gujarati, Sanskrit\n"
+                "• **B.P.A.:** Theatre & Production Management\n"
+                "• **BCA / B.S. Business Administration:** सभी स्ट्रीम के छात्रों के लिए खुला है\n\n"
+                "आप किस विषय के बारे में अधिक जानना चाहते हैं?"
+            )
         return (
             "With a 12th Arts background, you can apply for the following undergraduate courses at St. Xavier's College:\n\n"
             "• **B.A. Programmes:** Economics, English, Psychology, Sociology, Gujarati, Sanskrit\n"
@@ -2011,30 +2388,100 @@ def handle_course_discovery(question: str, profile: dict[str, Any]) -> str:
         )
 
     # If qualification is completely unknown
+    if lang == "gujarati":
+        return (
+            "ચોક્કસ! સેન્ટ ઝેવિયર્સ કોલેજ (સ્વાયત્ત), અમદાવાદ વિવિધ અંડરગ્રેજ્યુએટ (UG) અને પોસ્ટગ્રેજ્યુએટ (PG) અભ્યાસક્રમો ઓફર કરે છે:\n\n"
+            "• **અંડરગ્રેજ્યુએટ (UG):** BCA, B.Sc. (Physics, Chemistry, Maths, IT, AI & ML, Biotechnology, Biochemistry, Botany, Zoology), B.Com., B.A., BBA\n"
+            "• **પોસ્ટગ્રેજ્યુએટ (PG):** M.Sc. (Big Data Analytics, Artificial Intelligence, Chemistry, Physics), M.A.\n\n"
+            "તમે 12મા ધોરણ પછી અંડરગ્રેજ્યુએટ (UG) કોર્સ માટે માહિતી મેળવવા માંગો છો કે સ્નાતક પછી માસ્ટર્સ (PG) માટે?"
+        )
+    elif lang == "hindi":
+        return (
+            "ज़रूर! सेंट जेवियर्स कॉलेज (स्वायत्त), अहमदाबाद कई प्रमुख अंडरग्रेजुएट (UG) और पोस्टग्रेजुएट (PG) पाठ्यक्रम प्रदान करता है:\n\n"
+            "• **अंडरग्रेजुएट (UG):** BCA, B.Sc. (Physics, Chemistry, Maths, IT, AI & ML, Biotechnology, Biochemistry), B.Com., B.A., BBA\n"
+            "• **पोस्टग्रेजुएट (PG):** M.Sc. (Big Data Analytics, Artificial Intelligence, Chemistry, Physics), M.A.\n\n"
+            "क्या आप 12वीं के बाद अंडरग्रेजुएट (UG) कोर्स में रुचि रखते हैं या ग्रेजुएशन के बाद पोस्टग्रेजुएट (PG) मास्टर्स में?"
+        )
     return (
-        "Sure! St. Xavier's College offers a wide range of undergraduate and postgraduate programs.\n\n"
+        "St. Xavier's College (Autonomous), Ahmedabad offers a wide range of undergraduate (UG) and postgraduate (PG) programmes:\n\n"
+        "• **Undergraduate (UG):** BCA, B.Sc. (Physics, Chemistry, Mathematics, Statistics, Electronics, IT, AI & ML, Biotechnology, Biochemistry, Botany, Zoology), B.Com., B.A. (Economics, English, Psychology, Sociology, Gujarati, Sanskrit), and B.S. Business Administration\n"
+        "• **Postgraduate (PG):** M.Sc. (Big Data Analytics, Artificial Intelligence, Chemistry, Physics), and M.A.\n\n"
         "Are you looking for undergraduate (UG) courses after 12th, or postgraduate (PG) master's programs?"
     )
 
 
-def is_gujarati_mode(question: str, profile: dict[str, Any] | None = None) -> bool:
-    """Detects whether user prefers responses in Gujarati script."""
-    if profile and profile.get("language_preference") == "gujarati":
-        return True
-    if profile and profile.get("language_preference") == "english":
-        return False
-    q_low = question.lower().strip()
+def detect_language(question: str, profile: dict[str, Any] | None = None) -> str:
+    """Detects whether user is communicating in 'gujarati', 'hindi', or 'english'.
+    Supports native Indic scripts and Romanized transliteration.
+    User's session profile preference takes precedence if explicitly set.
+    """
+    if profile:
+        pref = profile.get("language_preference")
+        if pref in ("gujarati", "hindi", "english"):
+            return pref
+
+    q_low = (question or "").lower().strip()
+
+    # 1. Native Script Detection
     if re.search(r"[\u0A80-\u0AFF]", q_low):
-        return True
+        return "gujarati"
+    if re.search(r"[\u0900-\u097F]", q_low):
+        return "hindi"
+
+    # 2. Explicit Language Switch or Transliteration markers
     if re.search(r"\b(mane\s*gujarati\s*ma|gujarati\s*ma\s*j|mne\s*guj|guj\s*ma\s*jawab|gujarati\s*ma\s*bolo)\b", q_low):
-        return True
-    return bool(re.search(
-        r"\b(su\s*che|ketli\s*che|ketla\s*che|kon\s*che|kaya\s*course|kaya\s*courses|kya\s*events|kya\s*event|thaya\s*che|thaya|"
+        return "gujarati"
+    if re.search(r"\b(hindi\s*me\s*bolo|hindi\s*me\s*batao|hindi\s*me\s*jawab)\b", q_low):
+        return "hindi"
+
+    # 3. Romanized Gujarati markers
+    is_guj = bool(re.search(
+        r"\b(kem\s*cho|kemcho|majama\s*ne|maza\s*ma\s*ne|tame\s*kon|tamaru\s*naam|tame\s*su|tamne|amne|apde|"
+        r"su\s*che|shu\s*che|shun\s*che|ketli\s*che|ketla\s*che|kon\s*che|kaya\s*course|kaya\s*courses|kya\s*events|kya\s*event|thaya\s*che|thaya|"
         r"male\s*che|malshe|aapo|nathi|karvu\s*che|levu\s*che|lidhu\s*che|karyu\s*che|kyare\s*che|"
-        r"ni\s*information|ni\s*fee|ni\s*details|na\s*courses|ma\s*kya)\b"
+        r"ni\s*information|ni\s*fee|ni\s*details|na\s*courses|ma\s*kya|ma\s*su|"
+        r"lai\s*saku|lai\s*shaku|lai\s*sakay|lai\s*shakay|saku\??|male\??|che)\b"
         r"|\bhostel\s*che\??\b|\bscholarship\s*available\s*che\??\b|\bche\??$",
         q_low
     ))
+    if is_guj:
+        return "gujarati"
+
+    # 4. Romanized Hindi markers
+    is_hin = bool(re.search(
+        r"\b(kya\s*haal|kaise\s*ho|kaisi\s*ho|aap\s*kaun|tum\s*kaun|aapka\s*naam|tumhara\s*naam|"
+        r"namaste|namaskar|pranam|kripya|dhanyawad|shukriya|"
+        r"konsa\s*course|konse\s*course|kaunse\s*course|kaunsa\s*course|kitni\s*fee|kitna\s*fee|"
+        r"kya\s*hai|kya\s*hoga|milega|milegi|chahiye|lena\s*hai|karna\s*hai|batao|bataiye|bata\s*do|"
+        r"padhna\s*hai|admission\s*chahiye)\b"
+        r"|\bhai\??$|\bhain\??$",
+        q_low
+    ))
+    if is_hin:
+        return "hindi"
+
+    return "english"
+
+
+def is_gujarati_mode(question: str, profile: dict[str, Any] | None = None) -> bool:
+    """Detects whether user prefers responses in Gujarati."""
+    return detect_language(question, profile) == "gujarati"
+
+
+def is_hindi_mode(question: str, profile: dict[str, Any] | None = None) -> bool:
+    """Detects whether user prefers responses in Hindi."""
+    return detect_language(question, profile) == "hindi"
+
+
+def get_verified_fallback(question: str = "", profile: dict[str, Any] | None = None) -> str:
+    """Standard verified official college fallback response (Priority 5)."""
+    lang = detect_language(question, profile)
+    if lang == "gujarati":
+        return "દિલગીર છું, હું ઉપલબ્ધ સત્તાવાર કોલેજ સ્ત્રોતોમાંથી આ માહિતી ચકાસી શક્યો નથી. ખાતરી માટે, કૃપા કરીને સત્તાવાર સંપર્ક વિગતો દ્વારા કોલેજનો સંપર્ક કરો: info@sxca.edu.in / +91 79 2630 2872."
+    elif lang == "hindi":
+        return "क्षमा करें, मैं उपलब्ध आधिकारिक कॉलेज स्रोतों से इस जानकारी को सत्यापित नहीं कर सका। पुष्टि के लिए, कृपया आधिकारिक संपर्क विवरण के माध्यम से कॉलेज से संपर्क करें: info@sxca.edu.in / +91 79 2630 2872."
+    else:
+        return "Sorry, I couldn't verify this information from the available official college sources. For confirmation, please contact the college through its official contact details: info@sxca.edu.in / +91 79 2630 2872."
 
 
 def handle_language_preference(question: str, profile: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -2103,7 +2550,7 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
             ans = (
                 "સેન્ટ ઝેવિયર્સ કોલેજ (સ્વાયત્ત), અમદાવાદમાં વિવિધ વિભાગોમાં પ્રતિષ્ઠિત ફેકલ્ટી સભ્યો કાર્યરત છે:\n\n"
                 "• **નેતૃત્વ:** ફાધર એન્ટોની પીચાઈ (રેક્ટર), ફાધર ડૉ. ડેવિડ કે. રોય (ડિરેક્ટર), ડૉ. સેબેસ્ટિયન વી.એ. (પ્રિન્સિપાલ)\n"
-                "• **કોમ્પ્યુટર સાયન્સ & ડેટા સાયન્સ:** ડૉ. પ્રવિદા રાજા (HOD), શ્રી નિસર્ગ વ્યાસ (AI/ML કોઓર્ડિનેટર), શ્રી નિસર્ગ પટેલ\n"
+                "• **કોમ્પ્યુટર સાયન્સ & ડેટા સાયન્સ:** ડૉ. પ્રવિદા રાજા (HOD), શ્રી નિસર્ગ વ્યાસ (AI/ML કોઓર્ડિનેટર), સુશ્રી નેન્સી પટેલ\n"
                 "• **સાયન્સ & આર્ટ્સ:** ફિઝિક્સ, કેમેસ્ટ્રી, મેથેમેટિક્સ, ઇકોનોમિક્સ, અંગ્રેજી વગેરે\n\n"
                 "તમે કયા વિભાગ કે કયા ફેકલ્ટી સભ્ય વિશે જાણવા માંગો છો?"
             )
@@ -2111,10 +2558,11 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
             ans = (
                 "St. Xavier's College (Autonomous), Ahmedabad has distinguished faculty and leadership across various departments:\n\n"
                 "• **Leadership:** Fr. Antony Pitchai SJ (Rector), Fr. Dr. David K. Roy SJ (Director), Dr. Sebastian V.A. (Principal)\n"
-                "• **Computer Science & Data Science:** Dr. Pravida Raja (HOD), Mr. Nisarg Vyas (Coordinator, AI & ML), Mr. Nisarg Patel\n"
+                "• **Computer Science & Data Science:** Dr. Pravida Raja (HOD), Mr. Nisarg Vyas (Coordinator, AI & ML), Ms. Nancy Patel\n"
                 "• **Sciences & Humanities:** Physics, Chemistry, Mathematics, Biochemistry, Economics, English, and Commerce\n\n"
                 "Which department or faculty member would you like to know about?"
             )
+
         src = [{
             "title": "SXCA Academic Departments & Faculty",
             "source": "academics-departments-computer-sciences-faculty-computer-sciences-data-sciences.html",
@@ -2161,6 +2609,44 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
             "grounded": True,
         }
 
+    # 3b. Handle SIMILAR_NAME_CLARIFICATION (Rules 3 & 4):
+    # If the user asks for a name like "Nisarg Patel" where parts match existing faculty (e.g. Mr. Nisarg Vyas, Ms. Nancy Patel),
+    # do NOT claim they are the same person. Ask whether the user means the actual faculty member.
+    if resolution["status"] == "SIMILAR_NAME_CLARIFICATION":
+        target = resolution.get("query", "that name").strip()
+        cands = resolution.get("candidates", [])
+        cand_descriptions = [f"**{c['full_name']}** ({c['designation']} in the {c['department']})" for c in cands]
+        if len(cand_descriptions) == 1:
+            suggestion = cand_descriptions[0]
+        elif len(cand_descriptions) == 2:
+            suggestion = f"{cand_descriptions[0]} or {cand_descriptions[1]}"
+        else:
+            suggestion = ", ".join(cand_descriptions[:-1]) + f", or {cand_descriptions[-1]}"
+
+        lang = detect_language(question, prof)
+        if lang == "gujarati":
+            ans = (
+                f"મને સત્તાવાર SXCA રેકોર્ડમાં **{target}** નામના કોઈ ફેકલ્ટી સભ્ય મળ્યા નથી. "
+                f"શું તમારો અર્થ {suggestion} છે?"
+            )
+        elif lang == "hindi":
+            ans = (
+                f"मुझे आधिकारिक SXCA रिकॉर्ड में **{target}** नाम के कोई फैकल्टी सदस्य नहीं मिले। "
+                f"क्या आपका तात्पर्य {suggestion} से है?"
+            )
+        else:
+            ans = (
+                f"I couldn't find a faculty member named **{target}** in the official SXCA records. "
+                f"Did you mean {suggestion}?"
+            )
+        return {
+            "status": "CLARIFICATION",
+            "candidates": [c["canonical_name"] for c in cands],
+            "answer": ans,
+            "sources": [],
+            "grounded": True,
+        }
+
     # 4. Handle NOT_FOUND: Unknown person or generic question
     if resolution["status"] == "NOT_FOUND":
         target = resolution.get("query", "").strip()
@@ -2170,13 +2656,7 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
             or re.search(r"^(?:faculty\??|all\s*faculty\??|professors\??|teachers\??|list\s*of\s*faculty\??)$", q_low.strip())
         )
         if not is_generic_faculty_inquiry and target:
-            if is_guj:
-                ans = (
-                    f"હું સેન્ટ ઝેવિયર્સ કોલેજ (સ્વાયત્ત), અમદાવાદના સત્તાવાર રેકોર્ડમાં '{target}' અંગે કોઈ ફેકલ્ટી વિગતો શોધી શક્યો નથી.\n\n"
-                    "કૃપા કરીને કોલેજની સત્તાવાર વેબસાઇટ https://sxca.edu.in/ અથવા info@sxca.edu.in પર સંપર્ક કરો."
-                )
-            else:
-                ans = "Sorry, I don't have information about that in the available SXCA materials."
+            ans = get_verified_fallback(question, prof)
             return {
                 "status": "NOT_FOUND",
                 "answer": ans,
@@ -2227,7 +2707,7 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
         return {
             "status": "RESOLVED",
             "person": person,
-            "answer": "Sorry, I don't have information about that in the available SXCA materials.",
+            "answer": get_verified_fallback(question, prof),
             "sources": [],
             "grounded": False,
         }
@@ -2257,7 +2737,7 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
         return {
             "status": "RESOLVED",
             "person": person,
-            "answer": "Sorry, I don't have information about that in the available SXCA materials.",
+            "answer": get_verified_fallback(question, prof),
             "sources": [],
             "grounded": False,
         }
@@ -2282,7 +2762,7 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
             return {
                 "status": "RESOLVED",
                 "person": person,
-                "answer": "Sorry, I don't have information about that in the available SXCA materials.",
+                "answer": get_verified_fallback(question, prof),
                 "sources": [],
                 "grounded": False,
             }
@@ -2307,10 +2787,11 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
             return {
                 "status": "RESOLVED",
                 "person": person,
-                "answer": "Sorry, I don't have information about that in the available SXCA materials.",
+                "answer": get_verified_fallback(question, prof),
                 "sources": [],
                 "grounded": False,
             }
+
 
     # C. Department (e.g. "What department is he from?")
     if re.search(r"\b(department|dept|which\s*dept|what\s*dept|faculty\s*of)\b", q_low):
@@ -2476,12 +2957,13 @@ def handle_faculty(question: str, profile: dict[str, Any] | None = None) -> dict
         return {"status": "RESOLVED", "person": person, "answer": ans, "sources": src, "grounded": True}
 
     # G. Other uniquely identified faculty from the roster
+    email_line = f"\n• **Official Email:** {person['email']}" if person.get("email") else ""
     ans = (
         f"**{person['full_name']}** is {person['designation']} in the **{person['department']}** "
         f"at St. Xavier's College (Autonomous), Ahmedabad.\n\n"
         f"• **Designation:** {person['designation']}\n"
-        f"• **Department:** {person['department']}\n"
-        f"• **Official Email:** {person.get('email', 'info@sxca.edu.in')}"
+        f"• **Department:** {person['department']}"
+        f"{email_line}"
     )
     src = [{
         "title": f"SXCA Faculty - {person['department']}",

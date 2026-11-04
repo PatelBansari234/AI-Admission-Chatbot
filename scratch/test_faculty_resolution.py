@@ -17,7 +17,7 @@ def test_faculty_resolution():
     print("Pipeline answer preview:\n", pipe_a["answer"])
     assert "multiple people" in pipe_a["answer"].lower() or "specify the full name" in pipe_a["answer"].lower()
     assert "Nisarg Vyas" in pipe_a["answer"]
-    assert "Nisarg Patel" in pipe_a["answer"]
+    assert "Nisarg Patil" in pipe_a["answer"]
     # Must NOT select or answer about Nisarg Vyas directly
     assert "Coordinator of AI and ML" not in pipe_a["answer"]
     print("PASS: TEST A verified (AMBIGUOUS with candidates list, no person selected)!\n")
@@ -58,11 +58,41 @@ def test_faculty_resolution():
     assert res_d["status"] == "NOT_FOUND", f"Expected NOT_FOUND, got {res_d['status']}"
 
     pipe_d = pipeline.answer("Who is Professor Rajesh Sharma?")
-    print("Pipeline answer preview:\n", pipe_d["answer"])
-    assert "couldn't find" in pipe_d["answer"].lower() or "not available" in pipe_d["answer"].lower() or "office" in pipe_d["answer"].lower() or "available sxca materials" in pipe_d["answer"].lower() or "sorry" in pipe_d["answer"].lower()
-    print("PASS: TEST D verified (NOT_FOUND)!\n")
+    assert "couldn't verify this information" in pipe_d["answer"].lower() or "info@sxca.edu.in" in pipe_d["answer"]
+    print("PASS: TEST D verified (NOT_FOUND -> Verified official contact fallback)!\n")
 
-    print("ALL 4 FACULTY RESOLUTION TESTS PASSED!")
+    print("=== TEST E: 'nisarg patel' (Rule 4 Clarification: Do not claim same person, ask if user means Mr. Nisarg Vyas) ===")
+    res_e = counsellor.resolve_faculty("nisarg patel")
+    print("counsellor.resolve_faculty status:", res_e["status"])
+    assert res_e["status"] == "SIMILAR_NAME_CLARIFICATION", f"Expected SIMILAR_NAME_CLARIFICATION, got {res_e['status']}"
+    cand_names = [c["canonical_name"] for c in res_e.get("candidates", [])]
+    print("Candidates for clarification:", cand_names)
+    assert "Nisarg Vyas" in cand_names
+
+    pipe_e = pipeline.answer("nisarg patel")
+    print("Pipeline answer preview:\n", pipe_e["answer"])
+    # Rule 4: Ask whether the user means Mr. Nisarg Vyas
+    assert "Mr. Nisarg Vyas" in pipe_e["answer"] or "Nisarg Vyas" in pipe_e["answer"]
+    assert "Did you mean" in pipe_e["answer"] or "Did you mean" in pipe_e["answer"] or "couldn't find" in pipe_e["answer"].lower()
+    # Must NOT claim Nisarg Patel is faculty or staff
+    assert "is Faculty / Staff" not in pipe_e["answer"]
+    assert "is a faculty member" not in pipe_e["answer"] or "couldn't find a faculty member named" in pipe_e["answer"]
+    # Must NEVER hallucinate or invent fake email
+    assert "nisarg.patel@sxca.edu.in" not in pipe_e["answer"]
+    print("PASS: TEST E verified (Rule 4: Asks if user means Mr. Nisarg Vyas, never invents fake Nisarg Patel faculty)!\n")
+
+    print("=== TEST F: Missing Attributes (Rule 2 & 5: Never invent phone, salary, experience) ===")
+    pipe_f1 = pipeline.answer("What is Nisarg Vyas's phone number?")
+    print("Phone query answer:", pipe_f1["answer"])
+    assert "couldn't verify this information" in pipe_f1["answer"].lower() or "info@sxca.edu.in" in pipe_f1["answer"]
+
+    pipe_f2 = pipeline.answer("What is Nisarg Vyas's experience?")
+    print("Experience query answer:", pipe_f2["answer"])
+    assert "couldn't verify this information" in pipe_f2["answer"].lower() or "info@sxca.edu.in" in pipe_f2["answer"]
+    print("PASS: TEST F verified (Rule 2 & 5 & 6: Missing attributes return exact verified fallback, never invent)!\n")
+
+    print("ALL 6 STRICT GROUNDING & FACULTY RESOLUTION TESTS PASSED!")
 
 if __name__ == "__main__":
     test_faculty_resolution()
+

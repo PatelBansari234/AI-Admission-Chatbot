@@ -214,14 +214,15 @@ _SPELLING_CORRECTIONS = [
 
 
 def normalize_student_text(text: str) -> str:
-    """Normalize spelling mistakes, typos, slang, and short forms."""
-    t = text.strip()
-    has_pravida = bool(re.search(r"\bpravida\b", t, re.I))
+    """Normalize spelling mistakes, typos, slang, and short forms using query_normalizer."""
+    from backend.rag import query_normalizer
+    norm, _ = query_normalizer.normalize_query_text(text)
+    has_pravida = bool(re.search(r"\bpravida\b", norm, re.I))
     for pattern, replacement in _SPELLING_CORRECTIONS:
         if has_pravida and replacement == "holiday":
             continue
-        t = re.sub(pattern, replacement, t, flags=re.I)
-    return t
+        norm = re.sub(pattern, replacement, norm, flags=re.I)
+    return norm
 
 
 _COURSE_PATTERNS = [
@@ -375,18 +376,28 @@ def _fast_understand(question: str) -> dict | None:
             "intent": "merit_cutoff",
         }
 
-    # 2d. Percentage eligibility (e.g. "courses available for 65%", "can I get admission with 65%?")
-    pct_m = re.search(r"\b(\d{1,2}(?:\.\d+)?)\s*(?:%|percent\b)", norm_q, re.I)
-    is_percentage_intent = bool(pct_m) and bool(re.search(r"\b(course|courses|cource|available|eligible|eligibility|admission|can\s*i\s*(?:get|take|apply|do)|male|malshe|મળે|મળશે|મિલેગા)\b", norm_q, re.I))
+    # 2d. Percentage eligibility (e.g. "courses available for 65%", "can I get admission with 65%?", "I got 65% in 12th can I take BCA?", "12th ma 65 che")
+    from backend.rag import query_normalizer
+    score_info = query_normalizer.extract_percentage_and_score(norm_q)
+    if score_info["percentage"] is None and not score_info["is_ambiguous"]:
+        score_info = query_normalizer.extract_percentage_and_score(question)
+    has_score_or_pct = (score_info["percentage"] is not None) or score_info["is_ambiguous"]
+    is_percentage_intent = has_score_or_pct and bool(re.search(
+        r"\b(course|courses|cource|available|eligible|eligibility|admission|can\s*i\s*(?:get|take|apply|do)|male|malshe|મળે|મળશે|મિલેગા|milega|mil\s*sakta|lai\s*saku|lai\s*shaku|le\s*sakta)\b",
+        norm_q,
+        re.I,
+    ))
     if is_percentage_intent:
-        pct_val = pct_m.group(1)
+        pct_val = f"{score_info['percentage']:g}" if score_info["percentage"] is not None else None
         return {
-            "query": f"courses available for {pct_val} percent 12th pass",
+            "query": f"courses available for {pct_val or score_info['ambiguous_score']} percent 12th pass",
             "course": course,
             "qualification": qualification,
             "needs_structured_lookup": False,
             "intent": "percentage_eligibility",
             "percentage": pct_val,
+            "is_ambiguous_score": score_info["is_ambiguous"],
+            "ambiguous_score_val": score_info["ambiguous_score"],
         }
 
     # 3. Events / Fests / Departmental Activities
@@ -433,11 +444,16 @@ def _fast_understand(question: str) -> dict | None:
     )) and not re.search(r"\bpravida\b", norm_q, re.I)
 
     # 6. Faculty / Person / Professor intent
-    is_faculty_intent = bool(re.search(
-        r"\b(who\s+is\s+[A-Za-z]+|tell\s+me\s+about\s+(?:dr\.?|prof\.?|mr\.?|ms\.?|fr\.?|[A-Z][a-z]+)|faculty\s*(?:members?|details?|list)?|professors?|teachers?|head\s+of\s+(?:the\s+)?department|hod\s+of|coordinator\s+of|principal|vice\s*principal|who\s+teaches\b|pravida\s*raja|pravida|nisarg\s*vyas|nisar\s*vyash|nisarg|vyas|vyash|nithya\s*nadar|nithya|david\s*roy|fr\s*david|david|rector|director|president|chairman)\b",
-        norm_q,
-        re.I,
-    )) or "fr david" in norm_q or "fr.david" in norm_q or "dr david" in norm_q or "dr.david" in norm_q or "nisarg vyas" in norm_q or "nisar vyash" in norm_q
+    f_res = counsellor.resolve_faculty(norm_q)
+    has_faculty_match = f_res.get("status") in ("RESOLVED", "AMBIGUOUS", "SIMILAR_NAME_CLARIFICATION")
+    is_faculty_intent = (
+        has_faculty_match
+        or bool(re.search(
+            r"\b(who\s+is\s+[A-Za-z]+|tell\s+me\s+about\s+(?:dr\.?|prof\.?|mr\.?|ms\.?|fr\.?|[A-Z][a-z]+)|faculty\s*(?:members?|details?|list)?|professors?|teachers?|head\s+of\s+(?:the\s+)?department|hod\s+of|coordinator\s+of|principal|vice\s*principal|who\s+teaches\b|pravida\s*raja|pravida|nisarg\s*vyas|nisar\s*vyash|nisarg|vyas|vyash|nithya\s*nadar|nithya|david\s*roy|fr\s*david|david|rector|director|president|chairman)\b",
+            norm_q,
+            re.I,
+        )) or "fr david" in norm_q or "fr.david" in norm_q or "dr david" in norm_q or "dr.david" in norm_q or "nisarg vyas" in norm_q or "nisar vyash" in norm_q
+    )
 
     # 6b. Today's date intent
     is_today_date = bool(re.search(
@@ -499,9 +515,28 @@ def _fast_understand(question: str) -> dict | None:
             re.I,
         ))
 
-    # 0. Greeting & Pleasantries intent (instant <5ms response)
+    # 0a. Bot Identity intent (instant <5ms response)
+    is_identity = bool(re.search(
+        r"\b(who\s*are\s*you|who\s*r\s*u|what\s*is\s*your\s*name|what'?s\s*your\s*name|what\s*do\s*you\s*do|introduce\s*yourself|"
+        r"tame\s*kon\s*cho|tamaru\s*nam\s*su\s*che|tamaru\s*naam\s*su\s*che|tame\s*su\s*karo\s*cho|"
+        r"aap\s*kaun\s*hai|aap\s*kaun\s*ho|tum\s*kaun\s*ho|aapka\s*naam\s*kya\s*hai|apna\s*naam\s*batao|"
+        r"who\s*is\s*niaa|what\s*is\s*niaa|tell\s*me\s*about\s*yourself)\b|"
+        r"^(?:who\s*are\s*you|who\s*r\s*u|what\s*is\s*your\s*name|tame\s*kon\s*cho|aap\s*kaun\s*ho)\??$",
+        norm_q,
+        re.I,
+    )) and not course
+    if is_identity:
+        return {
+            "query": norm_q,
+            "course": None,
+            "qualification": None,
+            "needs_structured_lookup": False,
+            "intent": "identity",
+        }
+
+    # 0b. Greeting & Pleasantries intent (instant <5ms response)
     is_greeting = bool(re.search(
-        r"^(?:hi+|hello+|hey+|heya|greetings|good\s*(?:morning|afternoon|evening)|kem\s*cho|namaste|namaskar|pranam|kya\s*haal\s*(?:hai)?|halo|who\s*are\s*you|what\s*can\s*you\s*do|help\s*me|hi\s*there)\b",
+        r"^(?:hi+|hello+|hey+|heya|greetings|good\s*(?:morning|afternoon|evening)|kem\s*cho|majama\s*ne|maza\s*ma\s*ne|namaste|namaskar|pranam|kya\s*haal\s*(?:hai)?|kaise\s*ho|halo|hi\s*there|how\s*are\s*you)\b",
         norm_q,
         re.I,
     )) and not course and not qualification and not is_how_to_apply and not is_fee_intent and not is_doc_intent and not is_elig_intent and not is_broad_counselling and not is_curriculum_intent and not is_events_intent and not is_calendar_holiday and not is_faculty_intent and not is_today_date and not is_swimming_pool and not is_all_ug_courses and not is_all_pg_courses
@@ -514,7 +549,26 @@ def _fast_understand(question: str) -> dict | None:
             "intent": "greeting",
         }
 
-    # 0b. Chitchat, Gratitude & Goodbyes (instant <5ms response)
+    # 0c. Course Discovery intent (all variations of 'What courses are available?' / 'SXCA ma kaya course che?' / 'kaun se course hai')
+    is_course_discovery = bool(re.search(
+        r"\b(what\s*courses?\s*(?:are\s*)?(?:available|offered|there)|which\s*programs?\s*can\s*i\s*study|"
+        r"tell\s*me\s*(?:the\s*)?courses?\s*offered|courses?\s*offered|available\s*courses?|"
+        r"kaya\s*course\s*che|su\s*courses?\s*che|shun\s*courses?\s*che|courses?\s*kaya\s*che|courses?\s*che|"
+        r"kons[ae]\s*course\s*hai|kaun\s*(?:kaun\s*)?s[ae]\s*courses?\s*hai|kaunsa\s*course\s*hai|courses?\s*available|"
+        r"courses?\s*hai|કોર્સ\s*(?:ઉપલબ્ધ\s*)?છે|કયા\s*કોર્સ|कौन\s*से\s*कोर्स|पाठ्यक्रम)\b",
+        norm_q,
+        re.I,
+    )) and not course and not qualification and not is_how_to_apply and not is_fee_intent and not is_doc_intent and not is_curriculum_intent and not is_all_ug_courses and not is_all_pg_courses
+    if is_course_discovery:
+        return {
+            "query": "courses available St Xavier's College Ahmedabad",
+            "course": None,
+            "qualification": None,
+            "needs_structured_lookup": False,
+            "intent": "course_discovery",
+        }
+
+    # 0d. Chitchat, Gratitude & Goodbyes (instant <5ms response)
     is_chitchat = bool(re.search(
         r"^(?:thanks|thank\s*you|thanku|thx|dhanyawad|aabhar|shukriya|ok\s*thanks|okay\s*thanks|bye|goodbye|see\s*you|cya|take\s*care|ok|okay|cool|great\s*thanks)\b",
         norm_q,
@@ -966,13 +1020,14 @@ def understand(question: str, recent_turns: list[dict] | None = None, context: d
             "original_question": question,
         }
 
-    # 2. Check for specialized fast intents from _fast_understand (dates, swimming pool, rankings, holidays, pravida raja)
+    # 2. Check for specialized fast intents from _fast_understand (dates, swimming pool, rankings, holidays, pravida raja, identity, greeting)
     fast = _fast_understand(question)
     if fast is not None and fast.get("intent") in (
         "today_date", "swimming_pool", "faculty_pravida_raja", "ranking",
         "merit_cutoff", "percentage_eligibility", "calendar_holiday",
         "exam_date", "academic_calendar", "other_college", "source_query",
-        "all_ug_courses", "all_pg_courses", "application_link", "hostel"
+        "all_ug_courses", "all_pg_courses", "application_link", "hostel",
+        "identity", "greeting", "chitchat", "course_discovery"
     ):
         fast["profile"] = profile
         if fast.get("intent") in ("merit_cutoff", "percentage_eligibility", "application_link"):
@@ -1051,7 +1106,17 @@ def understand(question: str, recent_turns: list[dict] | None = None, context: d
             "original_question": question,
         }
 
-    if c_intent == "GREETING":
+    if c_intent == "IDENTITY" or (fast and fast.get("intent") == "identity"):
+        return {
+            "query": question,
+            "course": None,
+            "qualification": None,
+            "needs_structured_lookup": False,
+            "intent": "identity",
+            "profile": profile,
+        }
+
+    if c_intent == "GREETING" or (fast and fast.get("intent") == "greeting"):
         return {
             "query": question,
             "course": None,
@@ -1373,7 +1438,7 @@ def understand(question: str, recent_turns: list[dict] | None = None, context: d
     norm_q = normalize_student_text(question)
     can_inherit = counsellor.should_inherit_course_context(question, profile, recent_turns)
     if not can_inherit or c_intent in (
-        "EXAM_DATE", "ACADEMIC_CALENDAR", "HOLIDAY", "COMPLAINT", "GREETING", "CHITCHAT",
+        "EXAM_DATE", "ACADEMIC_CALENDAR", "HOLIDAY", "COMPLAINT", "GREETING", "CHITCHAT", "IDENTITY",
         "OTHER_COLLEGE", "ALL_UG_COURSES", "ALL_PG_COURSES", "COURSE_DISCOVERY",
         "LANGUAGE_PREFERENCE", "FACULTY", "CONTACT", "OFFICE_TIMING", "HOSTEL",
         "DEPARTMENTS", "CLUBS", "SPORTS", "NCC_NSS", "EVENTS", "PLACEMENT",
