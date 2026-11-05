@@ -2,8 +2,8 @@
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
-import torch
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -14,6 +14,15 @@ if os.name == "nt":
         if os.path.exists(_pg_path) and _pg_path not in os.environ.get("PATH", ""):
             os.environ["PATH"] = os.environ.get("PATH", "") + ";" + _pg_path
             break
+
+
+def _is_cuda_available() -> bool:
+    try:
+        import torch
+        return bool(torch.cuda.is_available())
+    except Exception:
+        return False
+
 
 # --- data layout -----------------------------------------------------------
 DATA_DIR = PROJECT_ROOT / "data"
@@ -33,28 +42,42 @@ COLLECTION_NAME = "sxca_admissions"
 # Users, the document registry, chat history, and crawl logs all live in
 # Postgres (backend/db/) - see backend/db/schema.sql and init_db.py. The
 # vector index (Chroma) and model/data files on disk stay outside it.
-DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "admission_chatbot")
-DB_USER = os.getenv("DB_USER", "admission_bot")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DATABASE_URL = os.getenv("DATABASE_URL") or (
-    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
+_RAW_DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if _RAW_DATABASE_URL:
+    _parsed_db = urlparse(_RAW_DATABASE_URL)
+    DB_HOST = os.getenv("DB_HOST") or _parsed_db.hostname or "127.0.0.1"
+    DB_PORT = os.getenv("DB_PORT") or str(_parsed_db.port or 5432)
+    DB_NAME = os.getenv("DB_NAME") or (_parsed_db.path or "/admission_chatbot").lstrip("/") or "admission_chatbot"
+    DB_USER = os.getenv("DB_USER") or _parsed_db.username or "admission_bot"
+    DB_PASSWORD = os.getenv("DB_PASSWORD") or _parsed_db.password or ""
+    DATABASE_URL = _RAW_DATABASE_URL
+else:
+    DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+    DB_NAME = os.getenv("DB_NAME", "admission_chatbot")
+    DB_USER = os.getenv("DB_USER", "admission_bot")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # --- models ----------------------------------------------------------------
 MODELS_DIR = PROJECT_ROOT / "models"
 LLM_PATH = os.getenv("LLM_PATH", str(MODELS_DIR / "Qwen2.5-3B-Instruct"))
 LLM_DEVICE = os.getenv("LLM_DEVICE", "auto")
-MAX_NEW_TOKENS = int(os.getenv("MAX_NEW_TOKENS", "180"))
+MAX_NEW_TOKENS = int(os.getenv("MAX_NEW_TOKENS", "350"))
 
 # QLoRA adapter trained on logged Q&A (tone/style) - see backend/finetune/.
 # The base model above supplies the weights; this is loaded on top of it.
 FINE_TUNED_ADAPTER_DIR = MODELS_DIR / "qwen-lora-adapter"
 USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "false").lower() == "true"
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+_raw_gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+# Automatically map legacy placeholder "gemini-3.6-flash" to official active Flash model
+GEMINI_MODEL = "gemini-2.5-flash" if _raw_gemini_model in ("", "gemini-3.6-flash") else _raw_gemini_model
+
+# Inference provider: defaults to "gemini" when GEMINI_API_KEY is configured,
+# or can be explicitly set via LLM_PROVIDER="gemini" | "qwen".
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini" if GEMINI_API_KEY else "qwen").strip().lower()
 
 EMBED_MODEL = os.getenv("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 EMBED_DEVICE = os.getenv("EMBED_DEVICE", "cpu")  # keep the GPU free for Qwen
@@ -90,9 +113,13 @@ RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-base")
 # the default batch_size=32's ~1.71GB peak, not slower). retriever.py still
 # falls back to CPU for that one request if the GPU genuinely runs out of
 # memory, rather than failing the request.
-RERANK_DEVICE = os.getenv("RERANK_DEVICE") or ("cuda" if torch.cuda.is_available() else "cpu")
-if RERANK_DEVICE == "cuda" and not torch.cuda.is_available():
+_env_rerank_dev = os.getenv("RERANK_DEVICE", "").strip().lower()
+if _env_rerank_dev == "cpu":
     RERANK_DEVICE = "cpu"
+else:
+    RERANK_DEVICE = _env_rerank_dev or ("cuda" if _is_cuda_available() else "cpu")
+    if RERANK_DEVICE == "cuda" and not _is_cuda_available():
+        RERANK_DEVICE = "cpu"
 
 RERANK_BATCH_SIZE = int(os.getenv("RERANK_BATCH_SIZE", "8"))
 # A single fixed cutoff on reranker score doesn't work: calibration showed a

@@ -2,14 +2,33 @@ from datetime import datetime
 import re
 from typing import Any
 
-from backend.config import LIVE_CRAWL_FALLBACK_ENABLED, RERANK_FLOOR
+from backend.config import LIVE_CRAWL_FALLBACK_ENABLED, LLM_PROVIDER, RERANK_FLOOR
 from backend.crawler.live_search import maybe_live_crawl
 from backend.db import repo
-from backend.llm import qwen
+from backend.llm import gemini, qwen
 from backend.rag import cache, counsellor, eligibility, query_rewrite
 from backend.rag.prompt import NO_CONTEXT_ANSWER, build_messages
 from backend.rag.retriever import as_sources, normalize_query, retrieve
 from backend.utils.registry import log_chat
+
+
+def _llm_generate(messages: list[dict]) -> str:
+    if LLM_PROVIDER == "gemini":
+        res = gemini.generate(messages)
+        if res:
+            return res
+    return qwen.generate(messages)
+
+
+def _llm_stream(messages: list[dict]):
+    if LLM_PROVIDER == "gemini":
+        yielded = False
+        for chunk in gemini.stream(messages):
+            yielded = True
+            yield chunk
+        if yielded:
+            return
+    yield from qwen.stream(messages)
 
 NO_INFO_ANSWER = (
     "Sorry, I couldn't verify this information from the available official college sources. "
@@ -1492,7 +1511,7 @@ def _raw_answer(question: str, history: list[dict] | None = None, conversation_i
         sources = []
         grounded = False
     else:
-        text = qwen.generate(build_messages(question, passages, turns, structured_rows))
+        text = _llm_generate(build_messages(question, passages, turns, structured_rows))
         grounded = not _is_refusal(text)
         if not grounded or _is_refusal(text):
             text = counsellor.get_verified_fallback(question, understanding.get("profile"))
@@ -1539,7 +1558,7 @@ def answer(question: str, history: list[dict] | None = None, conversation_id: st
 def _stream_attempt(question: str, passages: list[dict], history: list[dict], structured_rows: list[dict]):
     """Yields ("token", piece) as they arrive, then returns (full_text, grounded)."""
     collected = []
-    for piece in qwen.stream(build_messages(question, passages, history, structured_rows)):
+    for piece in _llm_stream(build_messages(question, passages, history, structured_rows)):
         collected.append(piece)
         yield "token", piece
     full = "".join(collected).strip()

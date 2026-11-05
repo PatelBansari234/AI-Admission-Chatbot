@@ -217,3 +217,26 @@ CREATE TABLE IF NOT EXISTS dataset_versions (
 
 CREATE INDEX IF NOT EXISTS idx_page_hashes_url ON page_hashes (url);
 CREATE INDEX IF NOT EXISTS idx_dataset_versions_created_at ON dataset_versions (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS document_blobs (
+    id            SERIAL PRIMARY KEY,
+    college_id    INTEGER REFERENCES colleges(id),
+    source        TEXT NOT NULL,
+    doc_type      TEXT NOT NULL DEFAULT 'pdf',
+    content_bytes BYTEA,
+    is_deleted    BOOLEAN NOT NULL DEFAULT false,
+    uploaded_by   TEXT,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (college_id, source)
+);
+
+CREATE TABLE IF NOT EXISTS admin_question_reviews (
+    college_id  INTEGER REFERENCES colleges(id),
+    chat_id     INTEGER NOT NULL,
+    reviewed    BOOLEAN NOT NULL DEFAULT true,
+    reviewed_by TEXT,
+    reviewed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    notes       TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (college_id, chat_id)
+);
+

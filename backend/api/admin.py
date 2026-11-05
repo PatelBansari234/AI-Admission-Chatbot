@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-import torch
 from backend.api.auth import change_password, require_admin
 from backend.config import (
     ALLOWED_CRAWL_DOMAIN,
@@ -24,12 +23,16 @@ from backend.config import (
     DB_HOST,
     DB_NAME,
     DB_PORT,
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
     LLM_DEVICE,
     LLM_PATH,
+    LLM_PROVIDER,
     RAW_PDF_CRAWL_DIR,
     RAW_PDF_DIR,
     RAW_WEB_CRAWL_DIR,
     RAW_WEB_DIR,
+    _is_cuda_available,
 )
 from backend.analytics.intents import compute_intents
 from backend.crawler.crawler import crawl as run_crawl
@@ -93,6 +96,7 @@ async def upload_document(
         shutil.copy2(target, backup_dir / f"{target.stem}.{stamp}{target.suffix}")
 
     target.write_bytes(payload)
+    repo.save_document_blob(name, "pdf" if suffix == ".pdf" else "website", payload, admin)
 
     try:
         result = ingest_file(target, uploaded_by=admin, replace=True, status="PENDING")
@@ -279,6 +283,7 @@ def rollback_crawler(_: str = Depends(require_admin)):
 def delete_document(source: str, _: str = Depends(require_admin)):
     name = _safe_name(source)
     store.delete_source(name, repo.default_college_id())
+    repo.mark_document_blob_deleted(name)
     removed = remove_document(name)
     if not removed:
         raise HTTPException(status_code=404, detail="Document not in the registry")
@@ -366,7 +371,10 @@ def admin_overview(_: str = Depends(require_admin)):
     idx_stats = store.stats()
 
     sys_status = "Healthy"
-    if not Path(LLM_PATH).exists():
+    if LLM_PROVIDER == "gemini":
+        if not GEMINI_API_KEY:
+            sys_status = "Degraded"
+    elif not Path(LLM_PATH).exists():
         sys_status = "Degraded"
 
     return {
@@ -430,31 +438,47 @@ def system_health_details(_: str = Depends(require_admin)):
         "chunks": chunk_count,
     }
 
-    # 4. Local Model Status
-    model_path = Path(LLM_PATH)
-    path_exists = model_path.exists()
-    is_cached = False
-    try:
-        from backend.llm import qwen
-        is_cached = qwen._load.cache_info().currsize > 0
-    except Exception:
-        pass
-
-    if path_exists:
-        model_status = "Healthy" if is_cached else "Degraded"
-        model_note = "Model loaded in active memory" if is_cached else "Model present on disk, loaded on demand"
+    # 4. AI Model Status
+    if LLM_PROVIDER == "gemini":
+        if GEMINI_API_KEY:
+            model_status = "Healthy"
+            model_note = "Google Gemini Cloud inference active"
+        else:
+            model_status = "Unavailable"
+            model_note = "GEMINI_API_KEY environment variable not configured"
+        model_health = {
+            "status": model_status,
+            "model_name": f"Gemini ({GEMINI_MODEL})",
+            "device": "Google GenAI Cloud",
+            "cuda_available": _is_cuda_available(),
+            "cached_in_memory": bool(GEMINI_API_KEY),
+            "note": model_note,
+        }
     else:
-        model_status = "Unavailable"
-        model_note = "Model weights directory not found on disk"
+        model_path = Path(LLM_PATH)
+        path_exists = model_path.exists()
+        is_cached = False
+        try:
+            from backend.llm import qwen
+            is_cached = qwen._load.cache_info().currsize > 0
+        except Exception:
+            pass
 
-    model_health = {
-        "status": model_status,
-        "model_name": model_path.name,
-        "device": LLM_DEVICE,
-        "cuda_available": torch.cuda.is_available(),
-        "cached_in_memory": is_cached,
-        "note": model_note,
-    }
+        if path_exists:
+            model_status = "Healthy" if is_cached else "Degraded"
+            model_note = "Model loaded in active memory" if is_cached else "Model present on disk, loaded on demand"
+        else:
+            model_status = "Unavailable"
+            model_note = "Model weights directory not found on disk"
+
+        model_health = {
+            "status": model_status,
+            "model_name": model_path.name,
+            "device": LLM_DEVICE,
+            "cuda_available": _is_cuda_available(),
+            "cached_in_memory": is_cached,
+            "note": model_note,
+        }
 
     overall = "Healthy"
     if any(c["status"] == "Unavailable" for c in [db_health, vec_health, model_health]):
@@ -546,6 +570,7 @@ async def upload_pdf_knowledge(
         shutil.copy2(target, backup_dir / f"{target.stem}.{stamp}{target.suffix}")
 
     target.write_bytes(payload)
+    repo.save_document_blob(name, "pdf", payload, admin)
 
     try:
         result = ingest_file(target, uploaded_by=admin, replace=True, status="ACTIVE")
@@ -576,6 +601,7 @@ def delete_pdf_knowledge(source: str, _: str = Depends(require_admin)):
 
     # 2. Clean database records & registry
     repo.delete_document(name)
+    repo.mark_document_blob_deleted(name)
     remove_document(name)
 
     # 3. Clean files from disk

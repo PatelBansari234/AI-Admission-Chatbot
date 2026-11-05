@@ -18,6 +18,18 @@ function generateUuid() {
 // a new id, matching "keep history until the user refreshes."
 export const conversationId = generateUuid();
 
+// Base URL for API requests. When VITE_API_BASE_URL is provided (e.g. in Vercel production),
+// requests route to that backend domain. Otherwise, fallback to empty string (relative paths)
+// for local development and monolithic builds.
+export const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+
+export function apiUrl(path) {
+  if (!path) return API_BASE_URL || "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${cleanPath}`;
+}
+
 export function getToken() {
   return sessionStorage.getItem(TOKEN_KEY) || "";
 }
@@ -48,13 +60,13 @@ export function isAdminAuthenticated() {
 }
 
 export async function getHealth() {
-  const res = await fetch("/api/health");
+  const res = await fetch(apiUrl("/api/health"));
   if (!res.ok) throw new Error("Health check failed");
   return res.json();
 }
 
 export async function login(username, password) {
-  const res = await fetch("/api/login", {
+  const res = await fetch(apiUrl("/api/login"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
@@ -68,7 +80,7 @@ export async function login(username, password) {
  * normalizes error handling. Throws on 401 after clearing the stored token,
  * so the caller can fall back to the login screen. */
 export async function authFetch(path, options = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     ...options,
     headers: { ...(options.headers || {}), Authorization: `Bearer ${getToken()}` },
   });
@@ -111,7 +123,7 @@ export async function* streamChat(question, history, signal) {
   const combinedSignal = mergeSignals(signal, timeoutController.signal);
 
   try {
-    const res = await fetch("/api/chat/stream", {
+    const res = await fetch(apiUrl("/api/chat/stream"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, history, conversation_id: conversationId }),

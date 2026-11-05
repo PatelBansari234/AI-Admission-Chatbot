@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from backend.api.admin import router as admin_router
 from backend.api.auth import create_token, ensure_default_admin, resolve_owner_id, verify_password
-from backend.config import COLLEGE_NAME, PROJECT_ROOT
+from backend.config import COLLEGE_NAME, LLM_PROVIDER, PROJECT_ROOT, RAW_PDF_DIR, RAW_WEB_DIR
 from backend.crawler.scheduler import start_scheduler, stop_scheduler
 from backend.db import repo
 from backend.db.repo import ensure_default_college
@@ -24,17 +24,80 @@ from backend.vectorstore import store
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 
 
+def _sync_persistence_and_index() -> None:
+    """Restore admin-uploaded/deleted documents from PostgreSQL and auto-index if ChromaDB is empty."""
+    try:
+        blobs = repo.list_document_blobs()
+        cid = repo.default_college_id()
+        for b in blobs:
+            src = b.get("source")
+            if not src:
+                continue
+            target_dir = RAW_PDF_DIR if str(src).lower().endswith(".pdf") or b.get("doc_type") == "pdf" else RAW_WEB_DIR
+            target_path = target_dir / src
+            if b.get("is_deleted"):
+                if target_path.exists():
+                    try:
+                        target_path.unlink()
+                    except Exception:
+                        pass
+                store.delete_source(src, cid)
+            elif b.get("content_bytes"):
+                raw_bytes = bytes(b["content_bytes"])
+                need_ingest = not target_path.exists()
+                if need_ingest:
+                    target_path.write_bytes(raw_bytes)
+                    try:
+                        from backend.rag.ingest import ingest_file
+                        ingest_file(target_path, uploaded_by=b.get("uploaded_by") or "admin", replace=True, status="ACTIVE")
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    try:
+        if store.stats().get("chunks", 0) == 0:
+            from backend.rag.ingest import ingest_all
+            ingest_all(reset=False)
+        elif not repo.list_documents():
+            cid = repo.default_college_id()
+            for dt in ("pdf", "website"):
+                chunks = store.get_all_chunks(doc_type=dt, college_id=cid)
+                counts: dict[str, int] = {}
+                for c in chunks:
+                    src = (c.get("metadata") or {}).get("source")
+                    if src:
+                        counts[src] = counts.get(src, 0) + 1
+                for src, cnt in counts.items():
+                    repo.upsert_document(source=src, doc_type=dt, chunks=cnt, uploaded_by="system", status="ACTIVE")
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import threading
-    ensure_default_college()
-    ensure_default_admin()
-    start_scheduler()
     try:
-        from backend.llm import qwen
-        threading.Thread(target=qwen.warmup, daemon=True).start()
+        from backend.db.init_db import apply_schema
+        apply_schema()
     except Exception:
         pass
+    try:
+        ensure_default_college()
+        ensure_default_admin()
+        if not repo.list_course_eligibility():
+            from backend.db.seed_eligibility import seed
+            seed()
+    except Exception:
+        pass
+    start_scheduler()
+    threading.Thread(target=_sync_persistence_and_index, daemon=True).start()
+    if LLM_PROVIDER == "qwen":
+        try:
+            from backend.llm import qwen
+            threading.Thread(target=qwen.warmup, daemon=True).start()
+        except Exception:
+            pass
     yield
     stop_scheduler()
 

@@ -657,3 +657,108 @@ def list_dataset_versions() -> list[dict]:
             (default_college_id(),),
         ).fetchall()
 
+
+# --- document blobs & admin reviews (cloud container persistence) ------------
+
+
+def save_document_blob(source: str, doc_type: str, content_bytes: bytes, uploaded_by: str) -> None:
+    """Persist uploaded PDF/HTML bytes in PostgreSQL so container restarts restore them."""
+    try:
+        cid = default_college_id()
+        with get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO document_blobs (college_id, source, doc_type, content_bytes, is_deleted, uploaded_by, updated_at)
+                VALUES (%s, %s, %s, %s, false, %s, now())
+                ON CONFLICT (college_id, source) DO UPDATE SET
+                    doc_type = EXCLUDED.doc_type,
+                    content_bytes = EXCLUDED.content_bytes,
+                    is_deleted = false,
+                    uploaded_by = EXCLUDED.uploaded_by,
+                    updated_at = now()
+                """,
+                (cid, source, doc_type, content_bytes, uploaded_by),
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def mark_document_blob_deleted(source: str) -> None:
+    """Record a document deletion in PostgreSQL so container restarts keep it deleted."""
+    try:
+        cid = default_college_id()
+        with get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO document_blobs (college_id, source, doc_type, content_bytes, is_deleted, uploaded_by, updated_at)
+                VALUES (%s, %s, 'pdf', NULL, true, 'admin', now())
+                ON CONFLICT (college_id, source) DO UPDATE SET
+                    content_bytes = NULL,
+                    is_deleted = true,
+                    updated_at = now()
+                """,
+                (cid, source),
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def list_document_blobs() -> list[dict]:
+    try:
+        cid = default_college_id()
+        with get_conn() as conn:
+            rows = conn.execute(
+                "SELECT source, doc_type, content_bytes, is_deleted, uploaded_by, updated_at "
+                "FROM document_blobs WHERE college_id = %s",
+                (cid,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+def upsert_admin_review(chat_id: int, reviewed: bool, reviewed_by: str, notes: str = "") -> None:
+    try:
+        cid = default_college_id()
+        with get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO admin_question_reviews (college_id, chat_id, reviewed, reviewed_by, reviewed_at, notes)
+                VALUES (%s, %s, %s, %s, now(), %s)
+                ON CONFLICT (college_id, chat_id) DO UPDATE SET
+                    reviewed = EXCLUDED.reviewed,
+                    reviewed_by = EXCLUDED.reviewed_by,
+                    reviewed_at = now(),
+                    notes = EXCLUDED.notes
+                """,
+                (cid, int(chat_id), bool(reviewed), reviewed_by, notes or ""),
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def get_all_admin_reviews() -> dict[str, dict]:
+    try:
+        cid = default_college_id()
+        with get_conn() as conn:
+            rows = conn.execute(
+                "SELECT chat_id, reviewed, reviewed_by, reviewed_at, notes "
+                "FROM admin_question_reviews WHERE college_id = %s",
+                (cid,),
+            ).fetchall()
+            res = {}
+            for r in rows:
+                res[str(r["chat_id"])] = {
+                    "reviewed": bool(r["reviewed"]),
+                    "reviewed_by": r["reviewed_by"],
+                    "reviewed_at": r["reviewed_at"].isoformat() if hasattr(r["reviewed_at"], "isoformat") else str(r["reviewed_at"]),
+                    "notes": r["notes"] or "",
+                }
+            return res
+    except Exception:
+        return {}
+
+

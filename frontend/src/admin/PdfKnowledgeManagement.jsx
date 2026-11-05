@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { authFetch, getToken } from "../api.js";
+import { apiUrl, authFetch, getToken } from "../api.js";
 
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return "—";
@@ -77,7 +77,7 @@ export default function PdfKnowledgeManagement({ notify }) {
     setUploadStatus(`Uploading ${file.name}...`);
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/admin/pdf/upload");
+    xhr.open("POST", apiUrl("/api/admin/pdf/upload"));
     xhr.setRequestHeader("Authorization", `Bearer ${getToken()}`);
 
     xhr.upload.onprogress = (event) => {

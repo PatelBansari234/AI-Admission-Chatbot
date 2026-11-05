@@ -150,12 +150,12 @@ export default function SystemHealth({ notify }) {
           </div>
         </div>
 
-        {/* Component 4: Local Qwen LLM */}
+        {/* Component 4: AI Inference Model */}
         <div className="admin-card">
           <div className="admin-card-header">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 18 }}>🧠</span>
-              <strong>Local Qwen Model</strong>
+              <strong>AI Inference Model</strong>
             </div>
             {getStatusBadge(health?.model?.status)}
           </div>

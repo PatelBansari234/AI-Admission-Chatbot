@@ -1,6 +1,5 @@
-"""Optional multilingual language-understanding provider using Gemini.
-Extracts {language, intent, course, qualification, query} from English, Hindi, Gujarati,
-and Hinglish queries without generating college facts.
+"""Gemini LLM provider for both grounded RAG response synthesis/streaming
+and optional multilingual intent understanding.
 """
 
 import json
@@ -8,9 +7,17 @@ import logging
 import re
 from functools import lru_cache
 
-from backend.config import GEMINI_API_KEY, GEMINI_MODEL
+from backend.config import GEMINI_API_KEY, GEMINI_MODEL, MAX_NEW_TOKENS
 
 logger = logging.getLogger(__name__)
+
+_ACTIVE_MODEL: str | None = None
+_FALLBACK_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-flash-latest",
+]
 
 _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 
@@ -166,3 +173,110 @@ def understand_multilingual(question: str, recent_turns: list[dict] | None = Non
     except Exception as e:
         logger.warning(f"Gemini multilingual understanding failed, falling back to local: {e}")
         return None
+
+
+def _candidate_models() -> list[str]:
+    global _ACTIVE_MODEL
+    candidates = []
+    if _ACTIVE_MODEL:
+        candidates.append(_ACTIVE_MODEL)
+    if GEMINI_MODEL and GEMINI_MODEL not in candidates:
+        candidates.append(GEMINI_MODEL)
+    for m in _FALLBACK_MODELS:
+        if m not in candidates:
+            candidates.append(m)
+    return candidates
+
+
+def _prepare_gemini_request(messages: list[dict], max_new_tokens: int):
+    from google.genai import types
+
+    system_parts = []
+    contents = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        text = (msg.get("content") or "").strip()
+        if not text:
+            continue
+        if role == "system":
+            system_parts.append(text)
+        elif role == "assistant":
+            contents.append(types.Content(role="model", parts=[types.Part.from_text(text=text)]))
+        else:
+            contents.append(types.Content(role="user", parts=[types.Part.from_text(text=text)]))
+
+    system_instruction = "\n\n".join(system_parts) if system_parts else None
+    config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+        temperature=0.0,
+        max_output_tokens=max_new_tokens,
+    )
+    return contents, config
+
+
+def generate(messages: list[dict], max_new_tokens: int = MAX_NEW_TOKENS) -> str:
+    """Generate a grounded admission response using Gemini API."""
+    global _ACTIVE_MODEL
+    client = _get_client()
+    if client is None:
+        from backend.rag.prompt import NO_CONTEXT_ANSWER
+        return NO_CONTEXT_ANSWER
+
+    contents, config = _prepare_gemini_request(messages, max_new_tokens)
+    last_err = None
+    for model_name in _candidate_models():
+        try:
+            resp = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config,
+            )
+            _ACTIVE_MODEL = model_name
+            if resp and resp.text:
+                return resp.text.strip()
+        except Exception as exc:
+            last_err = exc
+            logger.warning(f"Gemini generate failed with model {model_name}: {exc}")
+            continue
+
+    logger.error(f"All Gemini models failed in generate(): {last_err}")
+    from backend.rag.prompt import NO_CONTEXT_ANSWER
+    return NO_CONTEXT_ANSWER
+
+
+def stream(messages: list[dict], max_new_tokens: int = MAX_NEW_TOKENS):
+    """Stream grounded admission response tokens from Gemini API."""
+    global _ACTIVE_MODEL
+    client = _get_client()
+    if client is None:
+        from backend.rag.prompt import NO_CONTEXT_ANSWER
+        yield NO_CONTEXT_ANSWER
+        return
+
+    contents, config = _prepare_gemini_request(messages, max_new_tokens)
+    last_err = None
+    for model_name in _candidate_models():
+        try:
+            response_stream = client.models.generate_content_stream(
+                model=model_name,
+                contents=contents,
+                config=config,
+            )
+            yielded_any = False
+            for chunk in response_stream:
+                _ACTIVE_MODEL = model_name
+                piece = getattr(chunk, "text", None)
+                if piece:
+                    yielded_any = True
+                    yield piece
+            if yielded_any:
+                return
+        except Exception as exc:
+            last_err = exc
+            logger.warning(f"Gemini stream failed with model {model_name}: {exc}")
+            continue
+
+    logger.error(f"All Gemini models failed in stream(): {last_err}")
+    from backend.rag.prompt import NO_CONTEXT_ANSWER
+    yield NO_CONTEXT_ANSWER
+
