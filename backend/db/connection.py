@@ -17,8 +17,14 @@ _pool: ConnectionPool | None = None
 
 
 def _configure(conn) -> None:
-    conn.execute("SET TIME ZONE 'UTC'")
-    conn.commit()  # otherwise the pool hands out a connection stuck mid-transaction
+    try:
+        conn.execute("SET TIME ZONE 'UTC'")
+        conn.commit()  # otherwise the pool hands out a connection stuck mid-transaction
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
 
 
 def get_pool() -> ConnectionPool:
@@ -28,7 +34,7 @@ def get_pool() -> ConnectionPool:
             DATABASE_URL,
             min_size=1,
             max_size=5,
-            kwargs={"row_factory": dict_row},
+            kwargs={"row_factory": dict_row, "prepare_threshold": None},
             configure=_configure,
             open=True,
         )

@@ -1,8 +1,9 @@
 """Central configuration. Everything path-related is derived from PROJECT_ROOT."""
 
 import os
+import re
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlparse, urlsplit, urlunsplit
 
 from dotenv import load_dotenv
 
@@ -60,22 +61,76 @@ COLLECTION_NAME = "sxca_admissions"
 # Users, the document registry, chat history, and crawl logs all live in
 # Postgres (backend/db/) - see backend/db/schema.sql and init_db.py. The
 # vector index (Chroma) and model/data files on disk stay outside it.
-_RAW_DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
-if _RAW_DATABASE_URL:
-    _parsed_db = urlparse(_RAW_DATABASE_URL)
-    DB_HOST = os.getenv("DB_HOST") or _parsed_db.hostname or "127.0.0.1"
-    DB_PORT = os.getenv("DB_PORT") or str(_parsed_db.port or 5432)
-    DB_NAME = os.getenv("DB_NAME") or (_parsed_db.path or "/admission_chatbot").lstrip("/") or "admission_chatbot"
-    DB_USER = os.getenv("DB_USER") or _parsed_db.username or "admission_bot"
-    DB_PASSWORD = os.getenv("DB_PASSWORD") or _parsed_db.password or ""
-    DATABASE_URL = _RAW_DATABASE_URL
-else:
-    DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
-    DB_PORT = os.getenv("DB_PORT", "5432")
-    DB_NAME = os.getenv("DB_NAME", "admission_chatbot")
-    DB_USER = os.getenv("DB_USER", "admission_bot")
-    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+_VALID_SSLMODES = {"disable", "allow", "prefer", "require", "verify-ca", "verify-full"}
+
+
+def _clean_env_val(val: str) -> str:
+    return (val or "").strip().strip("'\"`").strip()
+
+
+_URI_PATTERN = re.compile(
+    r"postgres(?:ql)?(?:\+[a-z0-9_]+)?://([^:/\s'\"`]+)(?::([^\s'\"`]*)?)?@([^/@:\s'\"`?#]+)(?::(\d+))?/([^?#\s'\"`]+)(?:\?([^\s'\"`#]*))?",
+    re.I,
+)
+
+
+def _parse_and_normalize_db_config() -> tuple[str, str, str, str, str, str]:
+    raw_url = os.getenv("DATABASE_URL", "").strip()
+    raw_host = _clean_env_val(os.getenv("DB_HOST", ""))
+    raw_name = _clean_env_val(os.getenv("DB_NAME", ""))
+
+    # Recover gracefully if the full Neon URI was pasted into DB_HOST or DB_NAME
+    if not raw_url:
+        for candidate in (raw_host, raw_name):
+            if "postgres://" in candidate.lower() or "postgresql://" in candidate.lower():
+                raw_url = candidate
+                break
+
+    if raw_url:
+        m = _URI_PATTERN.search(raw_url)
+        if m:
+            u_raw, p_raw, h_raw, port_raw, db_raw, q_raw = m.groups()
+            host = h_raw.strip()
+            port = (port_raw or "5432").strip()
+            dbname = db_raw.split("?")[0].strip("'\"`") or "neondb"
+            user = unquote(u_raw or "") or "admission_bot"
+            password = unquote(p_raw or "")
+            q_dict = dict(parse_qsl(q_raw or "", keep_blank_values=True))
+        else:
+            clean_uri = _clean_env_val(raw_url)
+            clean_uri = re.sub(r"^postgres(?:ql)?(?:\+[a-z0-9_]+)?://", "postgresql://", clean_uri, flags=re.I)
+            sp = urlsplit(clean_uri)
+            host = sp.hostname or "127.0.0.1"
+            port = str(sp.port or 5432)
+            dbname = (sp.path or "").lstrip("/").split("?")[0].strip("'\"`") or "admission_chatbot"
+            user = unquote(sp.username or "") or "admission_bot"
+            password = unquote(sp.password or "")
+            q_dict = dict(parse_qsl(sp.query, keep_blank_values=True))
+
+        sslmode = _clean_env_val(q_dict.get("sslmode", "")).lower()
+        is_local = host.lower() in ("127.0.0.1", "localhost", "::1")
+        if sslmode not in _VALID_SSLMODES:
+            sslmode = "" if is_local else "require"
+
+        auth_part = f"{quote(user, safe='')}:{quote(password, safe='')}" if password else quote(user, safe="")
+        netloc = f"{auth_part}@{host}:{port}"
+        query = urlencode({"sslmode": sslmode}) if sslmode else ""
+        final_url = urlunsplit(("postgresql", netloc, f"/{dbname}", query, ""))
+        return host, port, dbname, user, password, final_url
+
+    host = raw_host or "127.0.0.1"
+    port = _clean_env_val(os.getenv("DB_PORT", "5432")) or "5432"
+    dbname = raw_name.split("?")[0] or "admission_chatbot"
+    user = _clean_env_val(os.getenv("DB_USER", "admission_bot")) or "admission_bot"
+    password = _clean_env_val(os.getenv("DB_PASSWORD", ""))
+    is_local = host.lower() in ("127.0.0.1", "localhost", "::1")
+    auth_part = f"{quote(user, safe='')}:{quote(password, safe='')}" if password else quote(user, safe="")
+    query = "" if is_local else "?sslmode=require"
+    final_url = f"postgresql://{auth_part}@{host}:{port}/{dbname}{query}"
+    return host, port, dbname, user, password, final_url
+
+
+DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DATABASE_URL = _parse_and_normalize_db_config()
 
 # --- models ----------------------------------------------------------------
 MODELS_DIR = PROJECT_ROOT / "models"
