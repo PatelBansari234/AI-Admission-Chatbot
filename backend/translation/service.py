@@ -25,7 +25,6 @@ from backend.translation.config import (
     TRANSLATION_MAX_OUTPUT_LEN,
 )
 from backend.translation.detector import detector
-from backend.translation.indic_processor import IndicProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,14 @@ class TranslationService:
             return
 
         self.enabled = TRANSLATION_ENABLED
-        self.processor = IndicProcessor(inference=True)
+        self.processor = None
+        if not LOW_MEMORY_MODE:
+            try:
+                from backend.translation.indic_processor import IndicProcessor
+
+                self.processor = IndicProcessor(inference=True)
+            except Exception as exc:
+                logger.warning("IndicProcessor not initialized at startup: %s", exc)
 
         self._device = self._resolve_device()
         self._ie_tokenizer = None
@@ -95,6 +101,10 @@ class TranslationService:
             return
 
         with self._load_lock:
+            if self.processor is None:
+                from backend.translation.indic_processor import IndicProcessor
+
+                self.processor = IndicProcessor(inference=True)
             if self._ie_model is not None:
                 return
 
@@ -121,6 +131,10 @@ class TranslationService:
             return
 
         with self._load_lock:
+            if self.processor is None:
+                from backend.translation.indic_processor import IndicProcessor
+
+                self.processor = IndicProcessor(inference=True)
             if self._ei_model is not None:
                 return
 

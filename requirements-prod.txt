@@ -23,3 +23,4 @@ numpy>=1.26.0
 scipy>=1.13.0
 scikit-learn>=1.4.2
 psutil>=5.9.8
+regex>=2024.4.16
