@@ -24,6 +24,24 @@ def _is_cuda_available() -> bool:
         return False
 
 
+def _detect_low_memory_mode() -> bool:
+    raw = os.getenv("LOW_MEMORY_MODE", "").strip().lower()
+    if raw in ("1", "true", "yes"):
+        return True
+    if raw in ("0", "false", "no"):
+        return False
+    if os.getenv("RENDER", "").strip().lower() == "true":
+        return True
+    try:
+        import psutil
+        return psutil.virtual_memory().total <= int(1.5 * (1024**3))
+    except Exception:
+        return False
+
+
+LOW_MEMORY_MODE = _detect_low_memory_mode()
+
+
 # --- data layout -----------------------------------------------------------
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_PDF_DIR = DATA_DIR / "raw" / "pdfs"
@@ -71,9 +89,7 @@ FINE_TUNED_ADAPTER_DIR = MODELS_DIR / "qwen-lora-adapter"
 USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "false").lower() == "true"
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-_raw_gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
-# Automatically map legacy placeholder "gemini-3.6-flash" to official active Flash model
-GEMINI_MODEL = "gemini-2.5-flash" if _raw_gemini_model in ("", "gemini-3.6-flash") else _raw_gemini_model
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
 
 # Inference provider: defaults to "gemini" when GEMINI_API_KEY is configured,
 # or can be explicitly set via LLM_PROVIDER="gemini" | "qwen".
@@ -114,7 +130,7 @@ RERANK_MODEL = os.getenv("RERANK_MODEL", "BAAI/bge-reranker-base")
 # falls back to CPU for that one request if the GPU genuinely runs out of
 # memory, rather than failing the request.
 _env_rerank_dev = os.getenv("RERANK_DEVICE", "").strip().lower()
-if _env_rerank_dev == "cpu":
+if LOW_MEMORY_MODE or _env_rerank_dev == "cpu":
     RERANK_DEVICE = "cpu"
 else:
     RERANK_DEVICE = _env_rerank_dev or ("cuda" if _is_cuda_available() else "cpu")

@@ -15,9 +15,7 @@ import threading
 import time
 from typing import Optional, Tuple
 
-import torch
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-
+from backend.config import LOW_MEMORY_MODE
 from backend.translation.config import (
     SUPPORTED_LANGUAGES,
     TRANSLATION_BEAM_SIZE,
@@ -71,25 +69,28 @@ class TranslationService:
         )
 
     def _resolve_device(self) -> str:
+        if LOW_MEMORY_MODE:
+            return "cpu"
         pref = TRANSLATION_DEVICE.lower()
-        if pref in ("cuda", "gpu") and torch.cuda.is_available():
-            return "cuda"
         if pref == "cpu":
             return "cpu"
+        try:
+            import torch
 
-        # Auto: check GPU memory
-        if torch.cuda.is_available():
-            try:
+            if pref in ("cuda", "gpu") and torch.cuda.is_available():
+                return "cuda"
+            if torch.cuda.is_available():
                 free_bytes = torch.cuda.mem_get_info()[0]
-                # If at least 3.0 GB VRAM free, use CUDA, else CPU
                 if free_bytes > 3.0 * (1024**3):
                     return "cuda"
-            except Exception:
-                pass
+        except Exception:
+            pass
         return "cpu"
 
     def _ensure_indic_en_loaded(self):
         """Lazy loads the Indic -> English translation model."""
+        if LOW_MEMORY_MODE:
+            raise RuntimeError("Local IndicTrans2 model loading is disabled in LOW_MEMORY_MODE.")
         if self._ie_model is not None:
             return
 
@@ -97,12 +98,14 @@ class TranslationService:
             if self._ie_model is not None:
                 return
 
+            import torch
+            from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+
             logger.info("Loading Indic -> English model (%s) onto %s...", INDIC_EN_MODEL_NAME, self._device)
             t0 = time.time()
             self._ie_tokenizer = AutoTokenizer.from_pretrained(
                 INDIC_EN_MODEL_NAME, trust_remote_code=True
             )
-            # Use float16 if cuda, float32 if cpu
             dt = torch.float16 if self._device == "cuda" else torch.float32
             self._ie_model = AutoModelForSeq2SeqLM.from_pretrained(
                 INDIC_EN_MODEL_NAME, dtype=dt, trust_remote_code=True
@@ -112,12 +115,17 @@ class TranslationService:
 
     def _ensure_en_indic_loaded(self):
         """Lazy loads the English -> Indic translation model."""
+        if LOW_MEMORY_MODE:
+            raise RuntimeError("Local IndicTrans2 model loading is disabled in LOW_MEMORY_MODE.")
         if self._ei_model is not None:
             return
 
         with self._load_lock:
             if self._ei_model is not None:
                 return
+
+            import torch
+            from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
             logger.info("Loading English -> Indic model (%s) onto %s...", EN_INDIC_MODEL_NAME, self._device)
             t0 = time.time()
@@ -146,7 +154,12 @@ class TranslationService:
             logger.warning("Unsupported source language: %s", src_lang)
             return text, False
 
+        if LOW_MEMORY_MODE:
+            return text, False
+
         try:
+            import torch
+
             self._ensure_indic_en_loaded()
 
             # Preprocess and placeholder-mask numbers/emails/dates/urls
@@ -206,7 +219,12 @@ class TranslationService:
             # Already in target script (e.g. native template or Gujarati fast-path)
             return text, False
 
+        if LOW_MEMORY_MODE:
+            return text, False
+
         try:
+            import torch
+
             self._ensure_en_indic_loaded()
 
             # Preprocess and protect numbers, course names, fees, emails, urls

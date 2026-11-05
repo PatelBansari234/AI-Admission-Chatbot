@@ -35,11 +35,10 @@ actually contain the answer), which this module doesn't see.
 import re
 import threading
 
-import torch
 from rank_bm25 import BM25Okapi
-from sentence_transformers import CrossEncoder
 
 from backend.config import (
+    LOW_MEMORY_MODE,
     PER_SOURCE_CANDIDATES,
     RERANK_BATCH_SIZE,
     RERANK_DEVICE,
@@ -80,14 +79,18 @@ def normalize_query(question: str) -> str:
 
 
 _reranker_lock = threading.Lock()
-_reranker_instance: CrossEncoder | None = None
+_reranker_instance = None
 
 
-def _reranker() -> CrossEncoder:
+def _reranker():
+    if LOW_MEMORY_MODE:
+        return None
     global _reranker_instance
     if _reranker_instance is None:
         with _reranker_lock:
             if _reranker_instance is None:
+                from sentence_transformers import CrossEncoder
+
                 _reranker_instance = CrossEncoder(RERANK_MODEL, device=RERANK_DEVICE)
     return _reranker_instance
 
@@ -101,6 +104,8 @@ def _rerank_predict(pairs: list[list[str]]):
     (longer conversation history, concurrent requests), fall back to CPU for
     this one request rather than failing it outright - slow and correct
     beats fast and broken."""
+    import torch
+
     model = _reranker()
     try:
         return model.predict(pairs, batch_size=RERANK_BATCH_SIZE)
@@ -144,8 +149,14 @@ class _Bm25Index:
             return []
         scores = self._bm25.get_scores(_tokenize(query_text))
         ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+        max_s = float(scores[ranked[0]]) if ranked and scores[ranked[0]] > 0 else 1.0
         return [
-            {"text": self._chunks[i]["text"], "metadata": self._chunks[i]["metadata"]}
+            {
+                "text": self._chunks[i]["text"],
+                "metadata": self._chunks[i]["metadata"],
+                "bm25_score": float(scores[i]),
+                "bm25_max": max_s,
+            }
             for i in ranked if scores[i] > 0
         ]
 
@@ -159,13 +170,21 @@ def _source_pool(question: str, embedding: list[float], doc_type: str, pool_size
     )
     bm25_hits = _bm25_indexes[doc_type].search(question, pool_size)
 
-    seen, pool = set(), []
+    seen_map: dict[tuple, dict] = {}
+    pool: list[dict] = []
     for h in vector_hits + bm25_hits:
         key = (h["metadata"].get("source"), h["text"][:80])
-        if key in seen:
+        if key in seen_map:
+            existing = seen_map[key]
+            if "distance" in h and "distance" not in existing:
+                existing["distance"] = h["distance"]
+            if "bm25_score" in h and "bm25_score" not in existing:
+                existing["bm25_score"] = h["bm25_score"]
+                existing["bm25_max"] = h.get("bm25_max", 1.0)
             continue
-        seen.add(key)
-        pool.append(h)
+        item = dict(h)
+        seen_map[key] = item
+        pool.append(item)
     return pool[:pool_size]
 
 
@@ -256,6 +275,50 @@ def _has_strong_query_alignment(distinctive_tokens: list[str], passage_text: str
     return len(matched) >= len(distinctive_tokens) * 0.75
 
 
+def _low_memory_rerank_scores(
+    question: str, distinctive_tokens: list[str], candidates: list[dict]
+) -> list[float]:
+    """Calibrated hybrid scorer (ChromaDB dense cosine similarity + BM25 lexical
+    relevance + query token alignment) used in 512 MB LOW_MEMORY_MODE so the
+    1.11 GB BAAI/bge-reranker-base model never has to be loaded into memory."""
+    scores: list[float] = []
+    for c in candidates:
+        text = c.get("text", "")
+        passage_tokens = set(_tokenize(text))
+
+        matched = 0
+        for qt in distinctive_tokens:
+            if qt in passage_tokens:
+                matched += 1
+            else:
+                base = qt.rstrip("s")
+                if len(base) >= 3 and any(
+                    pt == base or pt.rstrip("s") == base for pt in passage_tokens if len(pt) >= 3
+                ):
+                    matched += 1
+
+        lex_cov = (matched / len(distinctive_tokens)) if distinctive_tokens else 0.0
+        dist = c.get("distance")
+        cos_sim = max(0.0, 1.0 - float(dist)) if dist is not None else 0.55
+        bm25_norm = float(c.get("bm25_score", 0.0)) / max(float(c.get("bm25_max", 1.0)), 1e-6)
+
+        # Reject off-topic queries that have weak lexical overlap and weak semantic similarity
+        if distinctive_tokens:
+            if matched == 0 and cos_sim < 0.68:
+                scores.append(0.0)
+                continue
+            if len(distinctive_tokens) >= 3 and lex_cov < 0.34 and cos_sim < 0.68:
+                scores.append(0.0)
+                continue
+
+        dense_scaled = max(0.0, min(1.0, (cos_sim - 0.45) / 0.40))
+        hybrid = (0.45 * dense_scaled) + (0.35 * lex_cov) + (0.20 * bm25_norm)
+        if _has_strong_query_alignment(distinctive_tokens, text):
+            hybrid = max(hybrid, 0.55 + (0.25 * dense_scaled) + (0.20 * bm25_norm))
+        scores.append(round(float(min(0.999, hybrid)), 4))
+    return scores
+
+
 def retrieve(question: str, top_k: int = TOP_K) -> list[dict]:
     """Reranked passages, filtered by relative confidence so off-topic
     questions get nothing and terse-but-genuine ones aren't dropped just
@@ -274,8 +337,12 @@ def retrieve(question: str, top_k: int = TOP_K) -> list[dict]:
     if ent_lower and not any(ent_lower in c["text"].lower() for c in candidates):
         return []
 
-    pairs = [[question, c["text"]] for c in candidates]
-    scores = _rerank_predict(pairs)
+    distinctive_tokens = _extract_distinctive_query_tokens(question)
+    if LOW_MEMORY_MODE:
+        scores = _low_memory_rerank_scores(question, distinctive_tokens, candidates)
+    else:
+        pairs = [[question, c["text"]] for c in candidates]
+        scores = _rerank_predict(pairs)
     for c, s in zip(candidates, scores):
         c["rerank_score"] = float(s)
         boost = source_priority.boost_for(c["metadata"])

@@ -1,15 +1,30 @@
 """Persistent Chroma collection holding every prospectus / website chunk."""
 
+import tarfile
 from functools import lru_cache
 
 import chromadb
 from chromadb.config import Settings
 
-from backend.config import COLLECTION_NAME, VECTOR_DB_DIR
+from backend.config import COLLECTION_NAME, DATA_DIR, VECTOR_DB_DIR
+
+SEED_ARCHIVE = DATA_DIR / "vector_db_seed.tar.gz"
+
+
+def _ensure_seed_extracted() -> None:
+    """If vector_db/chroma.sqlite3 is missing (e.g. fresh cloud container deployed from Git),
+    bootstrap it from data/vector_db_seed.tar.gz before opening PersistentClient."""
+    sqlite_file = VECTOR_DB_DIR / "chroma.sqlite3"
+    if sqlite_file.exists() or not SEED_ARCHIVE.exists():
+        return
+    VECTOR_DB_DIR.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(SEED_ARCHIVE, mode="r:gz") as tf:
+        tf.extractall(path=VECTOR_DB_DIR)
 
 
 @lru_cache(maxsize=1)
 def get_client() -> chromadb.ClientAPI:
+    _ensure_seed_extracted()
     return chromadb.PersistentClient(
         path=str(VECTOR_DB_DIR),
         settings=Settings(anonymized_telemetry=False, allow_reset=True),

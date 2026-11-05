@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: sxca-admission-backend
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
+      - key: LOW_MEMORY_MODE
+        value: "true"
+      - key: EMBED_DEVICE
+        value: cpu
+      - key: RERANK_DEVICE
+        value: cpu
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false

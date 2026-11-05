@@ -15,8 +15,7 @@ from backend.utils.registry import log_chat
 def _llm_generate(messages: list[dict]) -> str:
     if LLM_PROVIDER == "gemini":
         res = gemini.generate(messages)
-        if res:
-            return res
+        return res if res else NO_CONTEXT_ANSWER
     return qwen.generate(messages)
 
 
@@ -26,8 +25,9 @@ def _llm_stream(messages: list[dict]):
         for chunk in gemini.stream(messages):
             yielded = True
             yield chunk
-        if yielded:
-            return
+        if not yielded:
+            yield NO_CONTEXT_ANSWER
+        return
     yield from qwen.stream(messages)
 
 NO_INFO_ANSWER = (

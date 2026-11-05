@@ -3,10 +3,15 @@
 import threading
 from functools import lru_cache
 
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
-
-from backend.config import FINE_TUNED_ADAPTER_DIR, LLM_DEVICE, LLM_PATH, MAX_NEW_TOKENS, USE_FINE_TUNED
+from backend.config import (
+    FINE_TUNED_ADAPTER_DIR,
+    LLM_DEVICE,
+    LLM_PATH,
+    LLM_PROVIDER,
+    LOW_MEMORY_MODE,
+    MAX_NEW_TOKENS,
+    USE_FINE_TUNED,
+)
 
 # generate() is not thread-safe and we hold a single copy of the weights.
 _generation_lock = threading.Lock()
@@ -14,6 +19,13 @@ _generation_lock = threading.Lock()
 
 @lru_cache(maxsize=1)
 def _load():
+    if LLM_PROVIDER == "gemini" or LOW_MEMORY_MODE:
+        raise RuntimeError(
+            "Local Qwen2.5-3B-Instruct loading is disabled when LLM_PROVIDER='gemini' or LOW_MEMORY_MODE is active."
+        )
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
@@ -43,6 +55,8 @@ def _load():
 
 
 def warmup() -> None:
+    if LLM_PROVIDER == "gemini" or LOW_MEMORY_MODE:
+        return
     _load()
 
 
@@ -56,6 +70,8 @@ def _prepare(messages: list[dict]):
 
 
 def generate(messages: list[dict], max_new_tokens: int = MAX_NEW_TOKENS) -> str:
+    import torch
+
     tokenizer, model, inputs = _prepare(messages)
     with _generation_lock, torch.inference_mode():
         outputs = model.generate(
@@ -73,6 +89,9 @@ def generate(messages: list[dict], max_new_tokens: int = MAX_NEW_TOKENS) -> str:
 
 def stream(messages: list[dict], max_new_tokens: int = MAX_NEW_TOKENS):
     """Yield the answer token-by-token so the UI can render it as it arrives."""
+    import torch
+    from transformers import TextIteratorStreamer
+
     tokenizer, model, inputs = _prepare(messages)
     streamer = TextIteratorStreamer(
         tokenizer, skip_prompt=True, skip_special_tokens=True
