@@ -3,6 +3,36 @@ import { getHealth, isAdminAuthenticated } from "./api.js";
 import ChatPage from "./components/ChatPage.jsx";
 import AdminPortal from "./admin/AdminPortal.jsx";
 
+export function cleanChatGptUtmSource() {
+  if (typeof window === "undefined" || !window.location || !window.history?.replaceState) {
+    return;
+  }
+  try {
+    const url = new URL(window.location.href);
+    const entries = Array.from(url.searchParams.entries());
+    const hasChatGptSource = entries.some(
+      ([key, value]) => key === "utm_source" && value.trim().toLowerCase() === "chatgpt.com"
+    );
+    if (!hasChatGptSource) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams();
+    for (const [key, value] of entries) {
+      if (key === "utm_source" && value.trim().toLowerCase() === "chatgpt.com") {
+        continue;
+      }
+      nextParams.append(key, value);
+    }
+
+    const nextSearch = nextParams.toString();
+    const nextUrl = url.pathname + (nextSearch ? `?${nextSearch}` : "") + url.hash;
+    window.history.replaceState(window.history.state, "", nextUrl);
+  } catch {
+    // Ignore malformed URL edge cases
+  }
+}
+
 export default function App() {
   const [collegeName, setCollegeName] = useState("St. Xavier's College (Autonomous), Ahmedabad");
   const [restartCount, setRestartCount] = useState(0);
@@ -26,7 +56,9 @@ export default function App() {
 
   // Listen for route changes (popstate, hashchange) and admin keyboard shortcut
   useEffect(() => {
+    cleanChatGptUtmSource();
     const checkRoute = () => {
+      cleanChatGptUtmSource();
       const match =
         window.location.pathname.startsWith("/admin") ||
         window.location.hash === "#admin" ||
